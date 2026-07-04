@@ -1,0 +1,7 @@
+VITE_API_BASE_URL=https://bienestar.uleam.edu.ec/dbanuproduccion
+VITE_REVERB_APP_KEY=5imppcirg088hqxnbtas
+VITE_REVERB_HOST=bienestar.uleam.edu.ec
+VITE_REVERB_PORT=443
+VITE_REVERB_SCHEME=https
+VITE_REVERB_PATH=/dbanuproduccion
+VITE_REVERB_AUTH_ENDPOINT=https://bienestar.uleam.edu.ec/dbanuproduccion/broadcasting/auth
