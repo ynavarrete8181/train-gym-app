@@ -1,24 +1,46 @@
-import { ScrollView, View } from "react-native";
+import { useRef } from "react";
+import { ScrollView, View, RefreshControl } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Chip, Text } from "react-native-paper";
-import AppButton from "../../components/common/AppButton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppCard from "../../components/common/AppCard";
+import WebSemanticButton from "../../components/common/WebSemanticButton";
 import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../features/dashboard/useDashboard";
 import { appStyles } from "../../theme/theme";
 import { colors } from "../../theme/colors";
+import { getScreenBottomPadding, getScreenTopPadding } from "../../theme/layout";
+import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 
 export default function ProfilePage() {
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
   const { user, signOut } = useAuth();
-  const { data } = useDashboard();
-  const deuda = data?.deuda;
+  const { data, loading, reload } = useDashboard();
   const membresia = data?.membresia;
+  const displayName = getUserValue(user, ["name", "nombre", "full_name", "nombre_completo"], "Usuario");
+  const documentId = getUserValue(user, ["cedula", "documento", "identificacion", "dni"], "No registrado");
+  const email = getUserValue(user, ["email", "correo"], "Sin correo registrado");
+  const phone = getUserValue(user, ["telefono", "phone", "celular"], "Sin telefono registrado");
+  const role = getUserValue(user, ["role", "rol", "perfil"], "CLIENTE");
+  const sede = getUserValue(user, ["sede_nombre", "sede", "gym"], "Revive Sports");
+
+  useRefreshOnFocus(scrollRef, reload, { skipInitial: true });
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={appStyles.screen}
-      contentContainerStyle={[appStyles.container, { gap: 18, paddingBottom: 32 }]}
+      contentContainerStyle={[
+        appStyles.container,
+        {
+          gap: 18,
+          paddingTop: getScreenTopPadding(insets.top, 18),
+          paddingBottom: getScreenBottomPadding(insets.bottom),
+        },
+      ]}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.primary} />}
     >
       <Text style={{ fontSize: 28, fontWeight: "900", color: colors.text }}>Perfil</Text>
 
@@ -39,35 +61,34 @@ export default function ProfilePage() {
 
           <View style={{ gap: 6 }}>
             <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff" }}>
-              {user?.name || "Usuario"}
+              {displayName}
             </Text>
-            <Text style={{ color: "rgba(255,255,255,0.72)" }}>{user?.email || "Sin correo"}</Text>
+            <Text style={{ color: "rgba(255,255,255,0.72)" }}>{email}</Text>
             <Chip
               mode="flat"
               style={{ alignSelf: "flex-start", backgroundColor: colors.primary }}
               textStyle={{ color: colors.text, fontWeight: "900" }}
             >
-              Rol: {user?.role || "CLIENTE"}
+              Rol: {role}
             </Chip>
           </View>
         </View>
       </AppCard>
 
       <AppCard>
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 14 }}>
           <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
-            Estado de cuenta
+            Datos del usuario
           </Text>
-          <Text style={{ color: colors.textSoft, lineHeight: 22 }}>
-            {membresia
-              ? `${membresia.nombre} vigente hasta ${new Date(membresia.fecha_fin).toLocaleDateString()}.`
-              : "Sin membresía activa registrada en este momento."}
-          </Text>
-          <Text style={{ color: deuda?.tiene_deuda ? "#b91c1c" : colors.textSoft, lineHeight: 22, fontWeight: "700" }}>
-            {deuda?.tiene_deuda
-              ? `Mantienes un saldo pendiente de $${parseFloat(deuda.saldo_total || 0).toFixed(2)}.`
-              : "No tienes deudas pendientes con caja."}
-          </Text>
+          <ProfileRow icon="card-account-details-outline" label="Cedula" value={documentId} />
+          <ProfileRow icon="email-outline" label="Correo" value={email} />
+          <ProfileRow icon="phone-outline" label="Telefono" value={phone} />
+          <ProfileRow icon="map-marker-outline" label="Sede" value={sede} />
+          <ProfileRow
+            icon="ticket-confirmation-outline"
+            label="Membresia"
+            value={membresia ? `${membresia.nombre} hasta ${new Date(membresia.fecha_fin).toLocaleDateString()}` : "Sin membresia activa"}
+          />
         </View>
       </AppCard>
 
@@ -76,11 +97,50 @@ export default function ProfilePage() {
           <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
             Sesión
           </Text>
-          <AppButton mode="outlined" onPress={signOut}>
-            Cerrar sesión
-          </AppButton>
+          <WebSemanticButton
+            label="Cerrar sesion"
+            icon="logout"
+            tone="danger"
+            onPress={signOut}
+            borderWidth={1.5}
+            style={{ alignSelf: "stretch" }}
+          />
         </View>
       </AppCard>
     </ScrollView>
   );
+}
+
+function ProfileRow({ icon, label, value }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          backgroundColor: colors.surfaceSoft,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        <MaterialCommunityIcons name={icon} size={19} color={colors.textSoft} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 11, fontWeight: "900", color: colors.textSoft, textTransform: "uppercase" }}>
+          {label}
+        </Text>
+        <Text style={{ marginTop: 2, fontSize: 14, fontWeight: "800", color: colors.text }}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function getUserValue(user, keys, fallback) {
+  const found = keys.map((key) => user?.[key]).find((value) => value !== null && value !== undefined && String(value).trim() !== "");
+  return found ? String(found) : fallback;
 }

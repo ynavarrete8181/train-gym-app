@@ -3,6 +3,7 @@ import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../theme/colors";
+import { getBottomSafePadding, getScreenTopPadding } from "../../theme/layout";
 
 export default function AppModal({ visible, title, subtitle, icon = "information-outline", children, footer, onClose }) {
   const insets = useSafeAreaInsets();
@@ -10,7 +11,15 @@ export default function AppModal({ visible, title, subtitle, icon = "information
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.container, { marginTop: insets.top + 18, marginBottom: insets.bottom + 18 }]}>
+        <View
+          style={[
+            styles.container,
+            {
+              marginTop: getScreenTopPadding(insets.top, 18),
+              marginBottom: getBottomSafePadding(insets.bottom, 18),
+            },
+          ]}
+        >
           <View style={styles.header}>
             <View style={styles.headerContent}>
               <View style={styles.iconBox}>

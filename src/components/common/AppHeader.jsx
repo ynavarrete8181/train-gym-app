@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../theme/colors";
+import { getScreenTopPadding } from "../../theme/layout";
 
 export default function AppHeader({
   icon = "view-dashboard-outline",
@@ -12,6 +13,7 @@ export default function AppHeader({
   right,
   showBack = false,
   showSettings = false,
+  rounded = false,
   onBack,
   onSettings,
 }) {
@@ -20,7 +22,7 @@ export default function AppHeader({
 
   if (showBack) {
     return (
-      <View style={[styles.compactHeader, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.compactHeader, { paddingTop: getScreenTopPadding(insets.top, 12) }]}>
         <View style={styles.compactRow}>
           <Pressable style={styles.compactBackButton} onPress={onBack || (() => router.back())}>
             <MaterialCommunityIcons name="arrow-left" size={23} color={colors.white} />
@@ -43,7 +45,7 @@ export default function AppHeader({
   const canShowActions = showSettings || right;
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+    <View style={[styles.header, rounded && styles.roundedHeader, { paddingTop: getScreenTopPadding(insets.top, 16) }]}>
       {canShowActions ? (
         <View style={styles.actionsRow}>
           <View />
@@ -78,6 +80,12 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomWidth: 4,
     borderBottomColor: colors.primary,
+  },
+  roundedHeader: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    paddingBottom: 28,
   },
   compactHeader: {
     backgroundColor: "#0F172A",

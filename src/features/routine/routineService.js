@@ -2,14 +2,18 @@ import apiClient from "../../api/apiClient";
 
 export const getRoutineByDay = async (week, day) => {
   try {
+    const params = {};
+    if (week) params.week = week;
+    if (day) params.day = day;
+
     const { data } = await apiClient.get('/app/rutinas', {
-      params: { week, day }
+      params
     });
     
     const routineData = data.data;
     if (routineData) {
       routineData.dayLabel = `Día ${day}`;
-      routineData.weekLabel = `Semana ${week}`;
+      routineData.weekLabel = `Semana ${routineData.week || week || 1}`;
       routineData.summary = {
         exercises: routineData.exercises ? routineData.exercises.length : 0,
         blocks: 1, // Puedes actualizar esto desde el backend si tienes bloques
@@ -25,8 +29,12 @@ export const getRoutineByDay = async (week, day) => {
 
     return { data: routineData, notConfigured: data.notConfigured || false };
   } catch (error) {
+    if (error.response && error.response.status === 404) {
+      // 404 significa que no hay plan activo asignado
+      return { data: null, notConfigured: false, noPlan: true };
+    }
     console.error("Error obteniendo la rutina:", error);
-    return { data: null, notConfigured: false };
+    return { data: null, notConfigured: false, noPlan: false };
   }
 };
 

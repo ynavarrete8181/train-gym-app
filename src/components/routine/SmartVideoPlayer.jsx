@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import YoutubePlayer from "react-native-youtube-iframe";
@@ -11,21 +11,13 @@ const getYoutubeId = (url) => {
 };
 
 export default function SmartVideoPlayer({ url }) {
-  const [playing, setPlaying] = useState(false);
+  const [playing] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  
-  const youtubeId = getYoutubeId(url);
-  const isYoutube = !!youtubeId;
-
-  // ==== NATIVE VIDEO PLAYER (EXPO-VIDEO) ====
-  const player = useVideoPlayer(isYoutube ? null : url, (p) => {
-    if (!isYoutube) {
-      p.loop = true;
-      p.play();
-    }
-  });
 
   if (!url) return null;
+
+  const youtubeId = getYoutubeId(url);
+  const isYoutube = !!youtubeId;
 
   if (isYoutube) {
     return (
@@ -49,7 +41,15 @@ export default function SmartVideoPlayer({ url }) {
     );
   }
 
-  // ==== DEFAULT MP4 PLAYER ====
+  return <NativeVideoPlayer url={url} />;
+}
+
+function NativeVideoPlayer({ url }) {
+  const player = useVideoPlayer(url, (p) => {
+    p.loop = true;
+    p.play();
+  });
+
   return (
     <View style={styles.container}>
       <VideoView 

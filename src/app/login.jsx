@@ -4,19 +4,22 @@ import { Controller, useForm } from "react-hook-form";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
 import { appStyles } from "../theme/theme";
+import { getBottomSafePadding, getScreenTopPadding } from "../theme/layout";
 
 import CustomAlert from "../components/common/CustomAlert";
 
@@ -31,9 +34,12 @@ const schema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const scrollRef = useRef(null);
   const cedulaRef = useRef(null);
   const passwordRef = useRef(null);
   
@@ -99,141 +105,164 @@ export default function LoginPage() {
     textAlignVertical: "center",
   };
 
+  const scrollToField = (y) => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y, animated: true });
+    });
+  };
+
   return (
     <View style={[appStyles.screen, { backgroundColor: colors.black }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 18}
       >
-        <ImageBackground
-          source={require("../../assets/images/revive-login-reference.png")}
-          resizeMode="cover"
-          style={{ flex: 1, backgroundColor: colors.black }}
+        <ScrollView
+          ref={scrollRef}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={{
+            minHeight: height + getScreenTopPadding(insets.top) + Math.max(insets.bottom, 12),
+            backgroundColor: colors.black,
+          }}
         >
-          <View style={{ flex: 1 }}>
-            {submitting ? (
-              <View
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundColor: "rgba(0, 0, 0, 0.28)",
-                  zIndex: 30,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+          <ImageBackground
+            source={require("../../assets/images/revive-login-reference.png")}
+            resizeMode="cover"
+            style={{
+              height: height + Math.max(insets.bottom, 12),
+              minHeight: height + Math.max(insets.bottom, 12),
+              backgroundColor: colors.black,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              {submitting ? (
                 <View
                   style={{
-                    minWidth: 220,
-                    paddingHorizontal: 22,
-                    paddingVertical: 18,
-                    borderRadius: 18,
-                    backgroundColor: "rgba(12, 12, 12, 0.92)",
+                    position: "absolute",
+                    inset: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.28)",
+                    zIndex: 30,
                     alignItems: "center",
-                    gap: 12,
+                    justifyContent: "center",
                   }}
                 >
-                  <ActivityIndicator size="large" color={colors.gold} />
-                  <View>
-                    <Text
-                      style={{
-                        color: colors.white,
-                        fontSize: 17,
-                        fontWeight: "700",
-                        textAlign: "center",
-                      }}
-                    >
-                      Validando acceso...
-                    </Text>
-                    <Text
-                      style={{
-                        marginTop: 4,
-                        color: "rgba(255,255,255,0.72)",
-                        fontSize: 13,
-                        textAlign: "center",
-                      }}
-                    >
-                      Iniciando sesión en Revive Sports
-                    </Text>
+                  <View
+                    style={{
+                      minWidth: 220,
+                      paddingHorizontal: 22,
+                      paddingVertical: 18,
+                      borderRadius: 18,
+                      backgroundColor: "rgba(12, 12, 12, 0.92)",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <ActivityIndicator size="large" color={colors.gold} />
+                    <View>
+                      <Text
+                        style={{
+                          color: colors.white,
+                          fontSize: 17,
+                          fontWeight: "700",
+                          textAlign: "center",
+                        }}
+                      >
+                        Validando acceso...
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 4,
+                          color: "rgba(255,255,255,0.72)",
+                          fontSize: 13,
+                          textAlign: "center",
+                        }}
+                      >
+                        Iniciando sesión en Revive Sports
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ) : null}
+              ) : null}
 
-            <View
-              pointerEvents="none"
-              style={[
-                overlayInputBase,
-                {
-                  top: "52.35%",
-                },
-              ]}
-            />
+              <View
+                pointerEvents="none"
+                style={[
+                  overlayInputBase,
+                  {
+                    top: "52.35%",
+                  },
+                ]}
+              />
 
-            <Controller
-              control={control}
-              name="cedula"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  ref={cedulaRef}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  keyboardType="numeric"
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  placeholder=""
-                  selectionColor={colors.gold}
-                  cursorColor={colors.gold}
-                  style={{
-                    position: "absolute",
-                    left: "23.8%",
-                    right: "21.5%",
-                    top: "52.45%",
-                    height: 32,
-                    ...overlayTextInputBase,
-                  }}
-                />
-              )}
-            />
+              <Controller
+                control={control}
+                name="cedula"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    ref={cedulaRef}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    onFocus={() => scrollToField(height * 0.12)}
+                    keyboardType="numeric"
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    placeholder=""
+                    selectionColor={colors.gold}
+                    cursorColor={colors.gold}
+                    style={{
+                      position: "absolute",
+                      left: "23.8%",
+                      right: "21.5%",
+                      top: "52.45%",
+                      height: 32,
+                      ...overlayTextInputBase,
+                    }}
+                  />
+                )}
+              />
 
-            <View
-              pointerEvents="none"
-              style={[
-                overlayInputBase,
-                {
-                  top: "62.15%",
-                  right: "27%",
-                },
-              ]}
-            />
+              <View
+                pointerEvents="none"
+                style={[
+                  overlayInputBase,
+                  {
+                    top: "62.15%",
+                    right: "27%",
+                  },
+                ]}
+              />
 
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  ref={passwordRef}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  secureTextEntry={!showPassword}
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  placeholder=""
-                  selectionColor={colors.gold}
-                  cursorColor={colors.gold}
-                  style={{
-                    position: "absolute",
-                    left: "23.8%",
-                    right: "27.4%",
-                    top: "62.25%",
-                    height: 32,
-                    ...overlayTextInputBase,
-                  }}
-                />
-              )}
-            />
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    ref={passwordRef}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    onFocus={() => scrollToField(height * 0.2)}
+                    secureTextEntry={!showPassword}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    placeholder=""
+                    selectionColor={colors.gold}
+                    cursorColor={colors.gold}
+                    style={{
+                      position: "absolute",
+                      left: "23.8%",
+                      right: "27.4%",
+                      top: "62.25%",
+                      height: 32,
+                      ...overlayTextInputBase,
+                    }}
+                  />
+                )}
+              />
 
             <Pressable
               onPress={() => setShowPassword((prev) => !prev)}
@@ -275,12 +304,13 @@ export default function LoginPage() {
                 position: "absolute",
                 left: "49%",
                 right: "18.5%",
-                bottom: "8.5%",
+                bottom: getBottomSafePadding(insets.bottom, 10),
                 height: 28,
               }}
             />
-          </View>
-        </ImageBackground>
+            </View>
+          </ImageBackground>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <CustomAlert 

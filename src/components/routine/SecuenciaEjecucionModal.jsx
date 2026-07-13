@@ -1,24 +1,57 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
-import { appStyles } from '../../theme/theme';
+import { getBottomSafePadding, getScreenTopPadding } from '../../theme/layout';
 import WebSemanticButton from '../common/WebSemanticButton';
 
-export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exerciseName, initialSeries = 5 }) {
-  const [sets, setSets] = useState(
-    Array.from({ length: initialSeries }).map((_, i) => ({
-      id: i + 1,
-      carga: '80.0',
-      reps: '5',
-      completed: i < 4,
-    }))
-  );
+export default function SecuenciaEjecucionModal({
+  visible,
+  onClose,
+  onSave,
+  exerciseName,
+  initialSeries = 5,
+  initialReps = '',
+  initialLoad = '',
+  plannedSeries = [],
+  initialExecution = null,
+}) {
+  const insets = useSafeAreaInsets();
+  const [sets, setSets] = useState([]);
   
-  const [rpe, setRpe] = useState(7);
-  const [dolor, setDolor] = useState(2);
+  const [rpe, setRpe] = useState(null);
+  const [dolor, setDolor] = useState(null);
   const [observaciones, setObservaciones] = useState('');
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const savedSeries = Array.isArray(initialExecution?.series) ? initialExecution.series : [];
+    const rowsCount = Math.max(initialSeries, plannedSeries.length || 0, 1);
+    const nextSets = Array.from({ length: rowsCount }).map((_, i) => {
+      const saved = savedSeries[i];
+      const planned = plannedSeries[i] || {};
+      return {
+        id: i + 1,
+        carga: saved?.carga ? String(saved.carga) : normalizeInitialLoad(planned.target_load || initialLoad),
+        reps: saved?.reps ? String(saved.reps) : String(planned.reps || initialReps || ''),
+        targetLoad: planned.target_load || initialLoad || 'Libre',
+        targetReps: planned.reps || initialReps || '',
+        completed: Boolean(saved?.completado),
+      };
+    });
+
+    const timeoutId = setTimeout(() => {
+      setSets(nextSets);
+      setRpe(initialExecution?.rpe ? Number(initialExecution.rpe) : null);
+      setDolor(initialExecution?.dolor_nivel != null ? Number(initialExecution.dolor_nivel) : null);
+      setObservaciones(initialExecution?.obs || '');
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [initialExecution, initialLoad, initialReps, initialSeries, plannedSeries, visible]);
 
   const toggleSet = (index) => {
     const newSets = [...sets];
@@ -51,7 +84,7 @@ export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exer
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : null}>
         {/* Header Modal */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: getScreenTopPadding(insets.top, 12) }]}>
           <View style={styles.headerContent}>
             <Text style={styles.headerSubtitle}>Secuencia de Ejecución</Text>
             <Text style={styles.headerTitle}>{exerciseName}</Text>
@@ -61,7 +94,7 @@ export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exer
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: getBottomSafePadding(insets.bottom, 28) }]}>
           
           {/* Tabla de Sets */}
           <View style={styles.tableHeader}>
@@ -73,30 +106,36 @@ export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exer
             </View>
           </View>
 
-          {sets.map((set, index) => (
-            <View key={set.id} style={styles.row}>
-              <Text style={styles.cellSet}>{set.id}</Text>
-              <TextInput 
-                style={styles.cellInput} 
-                value={set.carga} 
-                keyboardType="numeric"
-                onChangeText={(val) => {
-                  const newSets = [...sets];
-                  newSets[index].carga = val;
-                  setSets(newSets);
-                }}
-              />
-              <TextInput 
-                style={styles.cellInput} 
-                value={set.reps} 
-                keyboardType="numeric"
-                onChangeText={(val) => {
-                  const newSets = [...sets];
-                  newSets[index].reps = val;
-                  setSets(newSets);
-                }}
-              />
-              <TouchableOpacity onPress={() => toggleSet(index)} style={styles.checkboxContainer}>
+	          {sets.map((set, index) => (
+	            <View key={set.id} style={styles.row}>
+	              <Text style={styles.cellSet}>{set.id}</Text>
+	              <View style={styles.inputCell}>
+	                <TextInput 
+	                  style={styles.cellInput} 
+	                  value={set.carga} 
+	                  keyboardType="numeric"
+	                  onChangeText={(val) => {
+	                    const newSets = [...sets];
+	                    newSets[index].carga = val;
+	                    setSets(newSets);
+	                  }}
+	                />
+	                <Text style={styles.targetHint}>{set.targetLoad || 'Libre'}</Text>
+	              </View>
+	              <View style={styles.inputCell}>
+	                <TextInput 
+	                  style={styles.cellInput} 
+	                  value={set.reps} 
+	                  keyboardType="numeric"
+	                  onChangeText={(val) => {
+	                    const newSets = [...sets];
+	                    newSets[index].reps = val;
+	                    setSets(newSets);
+	                  }}
+	                />
+	                <Text style={styles.targetHint}>{set.targetReps ? `${set.targetReps} plan` : 'Plan'}</Text>
+	              </View>
+	              <TouchableOpacity onPress={() => toggleSet(index)} style={styles.checkboxContainer}>
                 <View style={[styles.checkbox, set.completed && styles.checkboxActive]}>
                   {set.completed && <MaterialCommunityIcons name="check" size={16} color={colors.white} />}
                 </View>
@@ -108,7 +147,7 @@ export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exer
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Esfuerzo Percibido (RPE)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-              {[5, 6, 7, 8, 9, 10].map(val => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => (
                 <TouchableOpacity 
                   key={val} 
                   onPress={() => setRpe(val)}
@@ -152,7 +191,7 @@ export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exer
         </ScrollView>
 
         {/* Botones */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: getBottomSafePadding(insets.bottom, 12) }]}>
           <View style={{ flex: 1 }}>
             <WebSemanticButton 
               label="Cancelar"
@@ -177,11 +216,15 @@ export default function SecuenciaEjecucionModal({ visible, onClose, onSave, exer
   );
 }
 
+function normalizeInitialLoad(value) {
+  if (!value || value === 'Libre') return '';
+  return String(value).replace(/[^\d.,]/g, '');
+}
+
 const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primaryDark,
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -207,7 +250,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 24,
-    paddingBottom: 40,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -231,18 +273,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textSoft,
   },
-  cellInput: {
+  inputCell: {
     flex: 1,
+    paddingRight: 8,
+  },
+  cellInput: {
     height: 44,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
-    marginRight: 12,
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
     backgroundColor: colors.surface,
+  },
+  targetHint: {
+    marginTop: 3,
+    fontSize: 10,
+    color: colors.textSoft,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   checkboxContainer: {
     width: 40,
@@ -311,7 +362,6 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,

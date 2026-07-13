@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
-import { View, ScrollView, StyleSheet, Modal, TouchableOpacity, Image, Platform } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, ScrollView, StyleSheet, Modal, TouchableOpacity, Image, Platform, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, ActivityIndicator, Searchbar } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -11,6 +11,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { getFacturas } from "../../../features/explore/exploreService";
 import { appStyles } from "../../../theme/theme";
 import { colors } from "../../../theme/colors";
+import { getBottomSafePadding, getScreenBottomPadding, getScreenTopPadding } from "../../../theme/layout";
 import AppCard from "../../../components/common/AppCard";
 import AppHeader from "../../../components/common/AppHeader";
 import WebSemanticButton from "../../../components/common/WebSemanticButton";
@@ -18,6 +19,7 @@ import WebSemanticButton from "../../../components/common/WebSemanticButton";
 export default function FacturasPage() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
   const { openId } = useLocalSearchParams();
   const [facturas, setFacturas] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,21 @@ export default function FacturasPage() {
   const [pdfUri, setPdfUri] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const loadFacturas = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getFacturas();
+      setFacturas(data);
+      return data;
+    } catch (error) {
+      console.error("Error loading invoices:", error);
+      setFacturas([]);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handlePrint = async (factura) => {
     if (!factura) return;
@@ -281,20 +298,18 @@ export default function FacturasPage() {
   };
 
   useEffect(() => {
-    getFacturas()
-      .then((data) => {
-        setFacturas(data);
-        if (openId && data) {
-          const match = data.find((f) => f.id.toString() === openId.toString());
-          if (match) {
-            handlePrint(match);
-          }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadFacturas().then((data) => {
+      if (openId && data) {
+        const match = data.find((f) => f.id.toString() === openId.toString());
+        if (match) {
+          handlePrint(match);
         }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      }
+    });
+    // handlePrint uses screen state and should not retrigger the invoice load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openId]);
+  }, [loadFacturas, openId]);
 
   const filteredFacturas = useMemo(() => {
     if (!facturas) return [];
@@ -342,7 +357,12 @@ export default function FacturasPage() {
         showSettings
       />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 112, gap: 16 }}>
+      <ScrollView 
+        ref={scrollRef} 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: getScreenBottomPadding(insets.bottom), gap: 16 }}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadFacturas} tintColor={colors.primary} />}
+      >
         <Searchbar
           placeholder="Buscar factura, pago o deuda..."
           onChangeText={setSearchQuery}
@@ -423,7 +443,15 @@ export default function FacturasPage() {
         onRequestClose={() => setSelectedFactura(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { marginTop: insets.top + 40, marginBottom: insets.bottom + 40 }]}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                marginTop: getScreenTopPadding(insets.top, 24),
+                marginBottom: getBottomSafePadding(insets.bottom, 24),
+              },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Detalle de Compra</Text>
@@ -550,7 +578,16 @@ export default function FacturasPage() {
         onRequestClose={() => setPreviewVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { marginTop: insets.top + 20, marginBottom: insets.bottom + 20, flex: 1 }]}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                marginTop: getScreenTopPadding(insets.top, 12),
+                marginBottom: getBottomSafePadding(insets.bottom, 12),
+                flex: 1,
+              },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>Comprobante de Pago</Text>

@@ -2,7 +2,9 @@ import { ScrollView, View, TouchableOpacity, StyleSheet } from "react-native";
 import { Text } from "react-native-paper";
 import { appStyles } from "../../theme/theme";
 
-export default function WeekSelector({ weeks = [1, 2, 3, 4], selectedWeek, onSelectWeek }) {
+export default function WeekSelector({ totalWeeks = 4, selectedWeek, onSelectWeek }) {
+  const weeks = Array.from({ length: Math.max(1, totalWeeks) }, (_, index) => index + 1);
+
   return (
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>

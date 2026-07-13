@@ -1,8 +1,6 @@
-import { useRouter } from "expo-router";
-import { ScrollView, View, Alert, RefreshControl, StyleSheet } from "react-native";
-import { Button } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useState } from "react";
+import { ScrollView, View, RefreshControl, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRef, useState } from "react";
 import EmptyState from "../../components/common/EmptyState";
 import LoadingView from "../../components/common/LoadingView";
 import ExerciseCard from "../../components/routine/ExerciseCard";
@@ -15,19 +13,23 @@ import { useRoutine } from "../../features/routine/useTodayRoutine";
 import { registerExecution } from "../../features/routine/routineService";
 import { appStyles } from "../../theme/theme";
 import { colors } from "../../theme/colors";
+import { getScreenBottomPadding } from "../../theme/layout";
+import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 
 import CustomAlert from "../../components/common/CustomAlert";
-import WebSemanticButton from "../../components/common/WebSemanticButton";
 
 export default function RoutinePage() {
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
   const { 
     selectedWeek, 
     selectedDay, 
     setSelectedWeek, 
     setSelectedDay, 
+    totalWeeks,
     routine, 
     notConfigured,
+    noPlan,
     loading, 
     reload 
   } = useRoutine();
@@ -36,9 +38,11 @@ export default function RoutinePage() {
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'success' });
   const [refreshing, setRefreshing] = useState(false);
 
+  useRefreshOnFocus(scrollRef, () => reload(true), { skipInitial: true });
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await reload();
+    await reload(true);
     setRefreshing(false);
   };
 
@@ -50,14 +54,16 @@ export default function RoutinePage() {
     try {
       // Agregar datos necesarios que no vienen del modal
       payload.plan_id = routine.planId;
+      payload.semana = selectedWeek || routine.week || 1;
+      payload.dia = selectedDay || routine.day;
       // Usar la fecha actual (idealmente la del dispositivo)
       payload.fecha_ejecucion = new Date().toISOString().split('T')[0];
 
       await registerExecution(payload);
       setSelectedExercise(null);
       showAlert("¡Excelente!", "Tu ejecución ha sido registrada.", "success");
-      reload(); // Recargar la rutina para mostrar el check verde
-    } catch (error) {
+      reload(true); // Recargar la rutina silenciosamente (sin pantalla de carga) para actualizar los datos
+    } catch (_error) {
       showAlert("Error", "No se pudo registrar la ejecución. Intenta de nuevo.", "error");
     }
   };
@@ -67,25 +73,33 @@ export default function RoutinePage() {
       return <LoadingView message="Cargando rutina..." />;
     }
 
+    if (noPlan) {
+      return (
+        <EmptyState
+          icon="clipboard-text-off-outline"
+          title="Sin asignación activa"
+          subtitle="Actualmente no tienes un plan de entrenamiento asignado. Visita la plataforma web para configurar tu próximo desafío."
+        />
+      );
+    }
+
     if (notConfigured) {
       return (
-        <View style={[appStyles.container, { flex: 1, justifyContent: "center" }]}>
-          <EmptyState
-            title="Plan no configurado"
-            subtitle="Tu entrenador aún no ha configurado las rutinas de tu plan activo."
-          />
-        </View>
+        <EmptyState
+          icon="clipboard-alert-outline"
+          title="Plan no configurado"
+          subtitle="Tu entrenador aún no ha configurado las rutinas de tu plan activo."
+        />
       );
     }
 
     if (!routine?.exercises?.length) {
       return (
-        <View style={[appStyles.container, { flex: 1, justifyContent: "center" }]}>
-          <EmptyState
-            title="Día de descanso"
-            subtitle="No hay ejercicios programados para este día. ¡Recupera energías!"
-          />
-        </View>
+        <EmptyState
+          icon="beach"
+          title="Día de descanso"
+          subtitle="No hay ejercicios programados para este día. ¡Recupera energías!"
+        />
       );
     }
 
@@ -97,6 +111,9 @@ export default function RoutinePage() {
             key={item.id}
             item={item}
             planId={routine.planId}
+            week={selectedWeek || routine.week || 1}
+            day={selectedDay || routine.day}
+            onExecute={() => setSelectedExercise(item)}
           />
         ))}
       </>
@@ -110,11 +127,13 @@ export default function RoutinePage() {
         title="Rutina"
         subtitle="Tu entrenamiento del día."
         showSettings
+        rounded
       />
 
       <ScrollView 
+        ref={scrollRef}
         style={styles.scrollArea} 
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 112, gap: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: getScreenBottomPadding(insets.bottom), gap: 16 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
@@ -129,16 +148,21 @@ export default function RoutinePage() {
           />
         )}
 
-        {/* Selectores debajo del encabezado */}
-        <WeekSelector 
-          selectedWeek={selectedWeek} 
-          onSelectWeek={setSelectedWeek} 
-        />
-        
-        <DaySelector 
-          selectedDay={selectedDay} 
-          onSelectDay={setSelectedDay} 
-        />
+        {/* Selectores debajo del encabezado - Ocultos si no hay plan o no está configurado */}
+        {!noPlan && !notConfigured && (
+          <>
+            <WeekSelector 
+              totalWeeks={totalWeeks}
+              selectedWeek={selectedWeek} 
+              onSelectWeek={setSelectedWeek} 
+            />
+            
+            <DaySelector 
+              selectedDay={selectedDay} 
+              onSelectDay={setSelectedDay} 
+            />
+          </>
+        )}
 
         {/* Contenido dinámico (Loading, EmptyState, Ejercicios) */}
         {renderContent()}
@@ -168,5 +192,5 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: -20,
     zIndex: 10,
-  }
+  },
 });

@@ -1,8 +1,13 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 import { STORAGE_KEYS } from "../utils/storageKeys";
 
-const rawBaseUrl = process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.100:8002";
+const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8002").trim();
+const rawBaseUrl =
+  Platform.OS === "android"
+    ? configuredBaseUrl.replace("localhost", "10.0.2.2").replace("127.0.0.1", "10.0.2.2")
+    : configuredBaseUrl.replace("10.0.2.2", "localhost");
 const API_BASE_ORIGIN = rawBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 const apiClient = axios.create({

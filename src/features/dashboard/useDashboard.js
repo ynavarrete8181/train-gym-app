@@ -22,7 +22,11 @@ export const useDashboard = () => {
   }, []);
 
   useEffect(() => {
-    loadDashboard();
+    const timeoutId = setTimeout(() => {
+      loadDashboard();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [loadDashboard]);
 
   return {

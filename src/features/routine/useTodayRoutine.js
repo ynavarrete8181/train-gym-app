@@ -9,36 +9,53 @@ const getCurrentDay = () => {
 };
 
 export const useRoutine = () => {
-  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [selectedWeek, setSelectedWeek] = useState(null);
   const [selectedDay, setSelectedDay] = useState(getCurrentDay());
   const [routine, setRoutine] = useState(null);
   const [notConfigured, setNotConfigured] = useState(false);
+  const [noPlan, setNoPlan] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [totalWeeks, setTotalWeeks] = useState(4);
 
-  const loadRoutine = useCallback(async (week, day) => {
-    setLoading(true);
+  const loadRoutine = useCallback(async (week, day, silent = false) => {
+    if (!silent) setLoading(true);
     setNotConfigured(false);
     try {
       const response = await getRoutineByDay(week, day);
       setRoutine(response.data);
       setNotConfigured(response.notConfigured);
+      setNoPlan(response.noPlan || false);
+      if (response.data?.week && week == null) {
+        setSelectedWeek(response.data.week);
+      }
+      if (response.data?.totalWeeks) {
+        setTotalWeeks(response.data.totalWeeks);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadRoutine(selectedWeek, selectedDay);
+    const timeoutId = setTimeout(() => {
+      loadRoutine(selectedWeek, selectedDay);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [selectedWeek, selectedDay, loadRoutine]);
+
+  const reload = useCallback((silent = false) => loadRoutine(selectedWeek, selectedDay, silent), [loadRoutine, selectedDay, selectedWeek]);
 
   return {
     selectedWeek,
     selectedDay,
     setSelectedWeek,
     setSelectedDay,
+    totalWeeks,
     routine,
     notConfigured,
+    noPlan,
     loading,
-    reload: () => loadRoutine(selectedWeek, selectedDay),
+    reload,
   };
 };

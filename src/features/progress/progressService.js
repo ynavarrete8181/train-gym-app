@@ -1,8 +1,13 @@
-export const getProgressSummary = async () => {
-  return {
-    adherence: 83,
-    sessions: 12,
-    painAverage: 2,
-    nextGoal: "Mantener constancia esta semana",
-  };
+import apiClient from "../../api/apiClient";
+
+export const getProgressSummary = async (filter = 'todo') => {
+  try {
+    const { data } = await apiClient.get('/app/progreso', {
+      params: { filter }
+    });
+    return data;
+  } catch (error) {
+    console.error("Error obteniendo resumen de progreso:", error);
+    throw error;
+  }
 };

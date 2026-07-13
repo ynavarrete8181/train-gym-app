@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, RefreshControl } from "react-native";
 import { ActivityIndicator, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getFichas } from "../../../features/explore/exploreService";
 import { normalizeAssetUrl } from "../../../api/apiClient";
 import { appStyles } from "../../../theme/theme";
@@ -11,21 +12,28 @@ import AppHeader from "../../../components/common/AppHeader";
 import AppBadge from "../../../components/common/AppBadge";
 import AppModal from "../../../components/common/AppModal";
 import WebSemanticButton from "../../../components/common/WebSemanticButton";
+import { useRefreshOnFocus } from "../../../hooks/useRefreshOnFocus";
+import { getScreenBottomPadding } from "../../../theme/layout";
 
 const demoBodyPhotoUrl = "https://thumbs.wbm.im/pw/medium/9058727efd2f9f8b4e59512c715bb1e1.png";
 
 export default function FichaPage() {
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailFicha, setDetailFicha] = useState(null);
   const [formulaFicha, setFormulaFicha] = useState(null);
 
-  useEffect(() => {
+  const loadFichas = useCallback(() => {
+    setLoading(true);
     getFichas()
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useRefreshOnFocus(scrollRef, loadFichas);
 
   const { ficha, evaluaciones = [] } = data || {};
   const fichas = useMemo(() => {
@@ -58,7 +66,12 @@ export default function FichaPage() {
         showSettings
       />
 
-      <ScrollView contentContainerStyle={[appStyles.container, styles.content]} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollRef} 
+        contentContainerStyle={[appStyles.container, styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom) }]} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadFichas} tintColor={colors.primary} />}
+      >
         {fichas.length > 0 ? (
           <>
             <View style={styles.sectionHeader}>

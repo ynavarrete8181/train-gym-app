@@ -1,11 +1,15 @@
 import { Redirect, Tabs } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import LoadingView from "../../components/common/LoadingView";
 import { colors } from "../../theme/colors";
+import { getTabBarHeight, TAB_BAR_MIN_BOTTOM } from "../../theme/layout";
 
 export default function TabsLayout() {
   const { booting, isAuthenticated } = useAuth();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, TAB_BAR_MIN_BOTTOM);
 
   if (booting) {
     return <LoadingView message="Cargando panel..." />;
@@ -27,14 +31,20 @@ export default function TabsLayout() {
           marginTop: 2,
         },
         tabBarItemStyle: {
-          paddingVertical: 6,
+          paddingTop: 6,
+          paddingBottom: 6,
         },
         tabBarStyle: {
-          backgroundColor: "#0F172A", // Dark navy background
+          backgroundColor: "#0F172A",
           borderTopWidth: 0,
-          height: 84, // iPhone safe area height usually needs a bit more room
+          height: getTabBarHeight(insets.bottom),
           paddingTop: 8,
-          paddingBottom: 28, // space for home indicator
+          paddingBottom: bottomInset,
+          elevation: 18,
+          shadowColor: "#000",
+          shadowOpacity: 0.18,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
         },
       }}
     >

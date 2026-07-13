@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, TextInput, KeyboardAvoidingView, Platform, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import { getBottomSafePadding, getScreenTopPadding } from '../../theme/layout';
 import { modalStyles } from '../../theme/modalStyles';
 import WebSemanticButton from '../common/WebSemanticButton';
 
 export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
+  const insets = useSafeAreaInsets();
   const [series, setSeries] = useState([]);
   const [obs, setObs] = useState('');
   const [rpe, setRpe] = useState(null);
@@ -14,40 +17,44 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
   // Inicializar las series basadas en el plan o en la ejecución previa
   useEffect(() => {
     if (visible && exercise) {
-      const seriesCount = exercise.series || 1;
+      const timeoutId = setTimeout(() => {
+        const seriesCount = exercise.series || 1;
 
-      if (exercise.ejecucion && exercise.ejecucion.series && exercise.ejecucion.series.length > 0) {
-        // Cargar desde DB (ejecución previa de hoy)
-        const savedSeries = exercise.ejecucion.series;
-        // Rellenar hasta la cantidad planificada si faltan series
-        const fullSeries = Array.from({ length: seriesCount }).map((_, index) => {
-          if (index < savedSeries.length) {
-            return { ...savedSeries[index], numero_serie: index + 1 };
-          }
-          return {
+        if (exercise.ejecucion && exercise.ejecucion.series && exercise.ejecucion.series.length > 0) {
+          // Cargar desde DB (ejecución previa de hoy)
+          const savedSeries = exercise.ejecucion.series;
+          // Rellenar hasta la cantidad planificada si faltan series
+          const fullSeries = Array.from({ length: seriesCount }).map((_, index) => {
+            if (index < savedSeries.length) {
+              return { ...savedSeries[index], numero_serie: index + 1 };
+            }
+            return {
+              numero_serie: index + 1,
+              reps: String(exercise.reps || ''),
+              carga: '',
+              completado: false
+            };
+          });
+          setSeries(fullSeries);
+          setObs(exercise.ejecucion.obs || '');
+          setRpe(exercise.ejecucion.rpe ? parseFloat(exercise.ejecucion.rpe) : null);
+          setDolor(exercise.ejecucion.dolor_nivel != null ? Number(exercise.ejecucion.dolor_nivel) : null);
+        } else {
+          // Generar series vacías basadas en la meta del plan
+          const initialSeries = Array.from({ length: seriesCount }).map((_, index) => ({
             numero_serie: index + 1,
             reps: String(exercise.reps || ''),
             carga: '',
             completado: false
-          };
-        });
-        setSeries(fullSeries);
-        setObs(exercise.ejecucion.obs || '');
-        setRpe(exercise.ejecucion.rpe ? parseFloat(exercise.ejecucion.rpe) : null);
-        setDolor(exercise.ejecucion.dolor_nivel != null ? Number(exercise.ejecucion.dolor_nivel) : null);
-      } else {
-        // Generar series vacías basadas en la meta del plan
-        const initialSeries = Array.from({ length: seriesCount }).map((_, index) => ({
-          numero_serie: index + 1,
-          reps: String(exercise.reps || ''),
-          carga: '',
-          completado: false
-        }));
-        setSeries(initialSeries);
-        setObs('');
-        setRpe(null);
-        setDolor(null);
-      }
+          }));
+          setSeries(initialSeries);
+          setObs('');
+          setRpe(null);
+          setDolor(null);
+        }
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [visible, exercise]);
 
@@ -89,7 +96,15 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={modalStyles.overlay}>
-        <View style={modalStyles.modalContainer}>
+        <View
+          style={[
+            modalStyles.modalContainer,
+            {
+              marginTop: getScreenTopPadding(insets.top, 8),
+              marginBottom: getBottomSafePadding(insets.bottom, 8),
+            },
+          ]}
+        >
           
           {/* Header Oscuro (Estilo Web) */}
           <View style={modalStyles.header}>
@@ -222,7 +237,7 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
           </ScrollView>
 
           {/* Botones Inferiores Estilo Web */}
-          <View style={modalStyles.footer}>
+          <View style={[modalStyles.footer, { paddingBottom: getBottomSafePadding(insets.bottom, 10) }]}>
             <WebSemanticButton
               label="CANCELAR"
               icon="close"

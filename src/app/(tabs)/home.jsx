@@ -1,43 +1,48 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppBadge from "../../components/common/AppBadge";
 import AppCard from "../../components/common/AppCard";
-import MetricCard from "../../components/common/MetricCard";
 import OutlineButton from "../../components/common/OutlineButton";
 import QuickActionCard from "../../components/common/QuickActionCard";
+import AppModal from "../../components/common/AppModal";
+import SmartVideoPlayer from "../../components/routine/SmartVideoPlayer";
 import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../features/dashboard/useDashboard";
 import { appStyles } from "../../theme/theme";
 import { colors } from "../../theme/colors";
 import { radius } from "../../theme/radius";
 import { typography } from "../../theme/typography";
+import { getScreenBottomPadding, getScreenTopPadding } from "../../theme/layout";
+import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
+
+const HELP_VIDEO_URL = process.env.EXPO_PUBLIC_HELP_VIDEO_URL;
 
 export default function HomePage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { data, ficha, loading, reload } = useDashboard();
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
+  const { data, loading, reload } = useDashboard();
   const { plan, membresia, factura, deuda, usuario } = data || {};
   const displayName = getShortName(usuario || user?.name);
-
-  // Extraer métricas corporales reales de la ficha
-  const bodyMetrics = useMemo(() => computeBodyMetrics(ficha), [ficha]);
+  const [helpVisible, setHelpVisible] = useState(false);
 
   const quickActions = useMemo(() => {
-    const actions = [
+    return [
+      { title: "Rutina", icon: "dumbbell", iconColor: colors.purple, bgColor: colors.surface, onPress: () => router.push("/(tabs)/routine") },
+      { title: "Ficha", icon: "account-outline", iconColor: colors.accentDark, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/ficha") },
+      { title: "Evaluación", icon: "clipboard-check-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/evaluaciones") },
+      { title: "RM", icon: "trophy-outline", iconColor: colors.danger, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/rms") },
       { title: "Evolución", icon: "chart-line-variant", iconColor: colors.success, bgColor: colors.surface, onPress: () => router.push("/(tabs)/progress") },
-      { title: "Mi Ficha", icon: "account-outline", iconColor: colors.accentDark, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/ficha") },
-      { title: "Evaluaciones", icon: "clipboard-check-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/evaluaciones") },
-      { title: "Mis RMs", icon: "trophy-outline", iconColor: colors.danger, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/rms") },
-      { title: "Rutina de hoy", icon: "dumbbell", iconColor: colors.purple, bgColor: colors.surface, onPress: () => router.push("/(tabs)/routine") },
-      { title: "Facturas", icon: "receipt-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/facturas") },
-      { title: "Soporte", icon: "headset", iconColor: colors.accentDark, bgColor: colors.surface, onPress: () => {} },
-      { title: "Más", icon: "dots-horizontal", iconColor: colors.textSoft, bgColor: colors.surface, onPress: () => {} },
+      { title: "Factura", icon: "receipt-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/facturas") },
     ];
-    return actions;
   }, [router]);
+
+  useRefreshOnFocus(scrollRef, reload, { skipInitial: true });
 
   if (loading && !data) {
     return (
@@ -50,8 +55,7 @@ export default function HomePage() {
 
   return (
     <View style={appStyles.screen}>
-      <View style={styles.header}>
-        <SafeAreaView>
+      <View style={[styles.header, { paddingTop: getScreenTopPadding(insets.top, 10) }]}>
           <View style={styles.headerContent}>
             <View style={styles.headerTopRow}>
               <View style={styles.logoRow}>
@@ -63,9 +67,17 @@ export default function HomePage() {
                 <Text style={styles.logoTextYellow}>SPORTS</Text>
               </View>
 
-              <TouchableOpacity activeOpacity={0.85} style={styles.settingsButtonWrapper}>
-                <MaterialCommunityIcons name="cog" size={24} color={colors.surface} />
-              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                <OutlineButton
+                  label="Ayuda"
+                  icon="play-circle-outline"
+                  onPress={() => setHelpVisible(true)}
+                  style={styles.helpButton}
+                />
+                <TouchableOpacity activeOpacity={0.85} style={styles.settingsButtonWrapper}>
+                  <MaterialCommunityIcons name="cog" size={24} color={colors.surface} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.headerTextBlock}>
@@ -74,13 +86,13 @@ export default function HomePage() {
               </Text>
             </View>
           </View>
-        </SafeAreaView>
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroller}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom, 72) }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.accent} />}
       >
         {/* ───── Membresía (arriba según mockup) ───── */}
@@ -123,27 +135,29 @@ export default function HomePage() {
         </AppCard>
 
         {/* ───── Tu plan de hoy ───── */}
-        <AppCard style={styles.planCard}>
-          <SectionHeader title="Tu plan de hoy" action="Ver rutina" onPress={() => router.push("/(tabs)/routine")} />
-          <View style={styles.planInner}>
-            <View style={styles.planIcon}>
-              <MaterialCommunityIcons name="calendar-month-outline" size={25} color="#6D4AFF" />
-            </View>
-
-            <View style={styles.planCopy}>
-              <Text style={styles.planMeta}>{getTodayLabel()} · Semana 1</Text>
-              <Text style={styles.planTitle} numberOfLines={1}>
-                {plan?.nombre || "Plan de Fuerza por RM"}
-              </Text>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: plan?.porcentaje ? `${plan.porcentaje}%` : "0%" }]} />
+        {plan && (
+          <AppCard style={styles.planCard}>
+            <SectionHeader title="Tu plan de hoy" action="Ver rutina" onPress={() => router.push("/(tabs)/routine")} />
+            <View style={styles.planInner}>
+              <View style={styles.planIcon}>
+                <MaterialCommunityIcons name="calendar-month-outline" size={25} color="#6D4AFF" />
               </View>
-              <Text style={styles.planMeta}>0 / {plan?.diasConfigurados || 4} ejercicios completados</Text>
-            </View>
 
-            <Text style={styles.percent}>{plan?.porcentaje || 0}%</Text>
-          </View>
-        </AppCard>
+              <View style={styles.planCopy}>
+                <Text style={styles.planMeta}>{getTodayLabel()} · Semana 1</Text>
+                <Text style={styles.planTitle} numberOfLines={1}>
+                  {plan.nombre || "Plan actual"}
+                </Text>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: plan.porcentaje ? `${plan.porcentaje}%` : "0%" }]} />
+                </View>
+                <Text style={styles.planMeta}>0 / {plan.diasConfigurados || 4} ejercicios completados</Text>
+              </View>
+
+              <Text style={styles.percent}>{plan.porcentaje || 0}%</Text>
+            </View>
+          </AppCard>
+        )}
 
         {/* ───── Accesos rápidos ───── */}
         <Text style={styles.sectionTitle}>Accesos rápidos</Text>
@@ -162,6 +176,26 @@ export default function HomePage() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <AppModal
+        visible={helpVisible}
+        title="Como usar la app"
+        subtitle="Guia rapida para moverte por Revive Sports."
+        icon="play-circle-outline"
+        onClose={() => setHelpVisible(false)}
+      >
+        {HELP_VIDEO_URL ? (
+          <View style={styles.helpVideoFrame}>
+            <SmartVideoPlayer url={HELP_VIDEO_URL} />
+          </View>
+        ) : (
+          <View style={styles.helpVideoPlaceholder}>
+            <MaterialCommunityIcons name="play-circle-outline" size={46} color={colors.accentDark} />
+            <Text style={styles.helpVideoPlaceholderText}>Video de ayuda pendiente</Text>
+          </View>
+        )}
+        <Text style={styles.helpText}>Mira el resumen rapido y luego entra a tu rutina, progreso, ficha o facturas desde los accesos.</Text>
+      </AppModal>
     </View>
   );
 }
@@ -172,10 +206,11 @@ function SectionHeader({ title, action, onPress }) {
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <TouchableOpacity activeOpacity={0.85} style={styles.sectionAction} onPress={onPress}>
-        <Text style={styles.sectionActionText}>{action}</Text>
-        <MaterialCommunityIcons name="arrow-right" size={18} color={colors.accentDark} />
-      </TouchableOpacity>
+      <OutlineButton
+        label={action}
+        onPress={onPress}
+        style={styles.sectionActionBtn}
+      />
     </View>
   );
 }
@@ -202,61 +237,6 @@ function getTodayLabel() {
   return days[new Date().getDay()];
 }
 
-/**
- * Calcula métricas corporales a partir de la ficha y su historial de evaluaciones.
- * Compara la medición más reciente con la primera para generar deltas "vs. inicio".
- */
-function computeBodyMetrics(fichaData) {
-  const fallback = {
-    peso: { value: "-", change: null },
-    grasa: { value: "-", change: null },
-    masaMagra: { value: "-", change: null },
-    imc: { value: "-", status: null },
-  };
-
-  if (!fichaData?.ficha) return fallback;
-
-  const current = fichaData.ficha;
-  const evaluaciones = fichaData.evaluaciones || [];
-  const first = evaluaciones.length > 1 ? evaluaciones[0] : null;
-
-  const safe = (v) => (v != null && v !== "" ? Number(v) : null);
-
-  const pesoActual = safe(current.peso_kg);
-  const grasaActual = safe(current.grasa_corporal_pct);
-  const masaActual = safe(current.masa_magra_kg);
-  const imcActual = safe(current.imc);
-
-  const delta = (current_val, key) => {
-    if (current_val == null || !first) return null;
-    const initial = safe(first[key]);
-    if (initial == null) return null;
-    const diff = Number((current_val - initial).toFixed(1));
-    if (diff === 0) return null;
-    const arrow = diff > 0 ? "↑" : "↓";
-    return `${arrow} ${Math.abs(diff)}`;
-  };
-
-  return {
-    peso: {
-      value: pesoActual != null ? pesoActual.toFixed(1) : "-",
-      change: delta(pesoActual, "peso_kg") ? `${delta(pesoActual, "peso_kg")} kg` : null,
-    },
-    grasa: {
-      value: grasaActual != null ? grasaActual.toFixed(1) : "-",
-      change: delta(grasaActual, "grasa_corporal_pct") ? `${delta(grasaActual, "grasa_corporal_pct")}%` : null,
-    },
-    masaMagra: {
-      value: masaActual != null ? masaActual.toFixed(1) : "-",
-      change: delta(masaActual, "masa_magra_kg") ? `${delta(masaActual, "masa_magra_kg")} kg` : null,
-    },
-    imc: {
-      value: imcActual != null ? imcActual.toFixed(1) : "-",
-      status: current.estado_nutricional?.label || current.estado_nutricional || null,
-    },
-  };
-}
-
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -275,6 +255,17 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
     borderBottomLeftRadius: radius.xxl,
     borderBottomRightRadius: radius.xxl,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  helpButton: {
+    height: 36,
+    minWidth: 108,
+    paddingHorizontal: 10,
+    backgroundColor: colors.white,
   },
   scroller: {
     position: "relative",
@@ -367,8 +358,33 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 18,
-    paddingBottom: 190,
     gap: 22,
+  },
+  helpVideoFrame: {
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: colors.text,
+  },
+  helpVideoPlaceholder: {
+    minHeight: 180,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  helpVideoPlaceholderText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  helpText: {
+    color: colors.textSoft,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
   },
   membershipCard: {
     gap: 18,
@@ -444,15 +460,10 @@ const styles = StyleSheet.create({
     ...typography.sectionTitle,
     fontSize: 15,
   },
-  sectionAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  sectionActionText: {
-    color: colors.accentDark,
-    fontSize: 15,
-    fontWeight: "700",
+  sectionActionBtn: {
+    height: 32,
+    minWidth: 100,
+    paddingHorizontal: 12,
   },
   planCard: {
     gap: 16,

@@ -1,24 +1,34 @@
-import { Chip } from "react-native-paper";
+import { View } from "react-native";
+import { Text } from "react-native-paper";
 import { colors } from "../../theme/colors";
 
 const toneMap = {
-  PENDIENTE: { borderColor: colors.border, textColor: colors.textSoft },
-  EN_PROGRESO: { borderColor: colors.accent, textColor: colors.accent },
-  COMPLETADO: { borderColor: colors.success, textColor: colors.success },
-  COMPLETADO_CON_AJUSTE: { borderColor: colors.warning, textColor: colors.warning },
-  OMITIDO: { borderColor: colors.danger, textColor: colors.danger },
+  PENDIENTE: { borderColor: "#FDE68A", backgroundColor: "#FFFBEB", textColor: "#B45309" },
+  EN_PROGRESO: { borderColor: colors.blue, backgroundColor: colors.blueSoft, textColor: colors.info },
+  COMPLETADO: { borderColor: colors.success, backgroundColor: colors.successSoft, textColor: colors.success },
+  COMPLETADO_CON_AJUSTE: { borderColor: colors.warning, backgroundColor: colors.yellowSoft, textColor: colors.warning },
+  OMITIDO: { borderColor: colors.danger, backgroundColor: colors.dangerSoft, textColor: colors.danger },
 };
 
 export default function ProgressChip({ status }) {
   const tone = toneMap[status] || toneMap.PENDIENTE;
+  const label = String(status || "PENDIENTE").replaceAll("_", " ");
 
   return (
-    <Chip
-      mode="outlined"
-      textStyle={{ color: tone.textColor, fontWeight: "700", fontSize: 12 }}
-      style={{ borderColor: tone.borderColor, backgroundColor: "#fff" }}
+    <View
+      style={{
+        alignSelf: "flex-start",
+        borderWidth: 1,
+        borderColor: tone.borderColor,
+        backgroundColor: tone.backgroundColor,
+        borderRadius: 4,
+        paddingHorizontal: 9,
+        paddingVertical: 5,
+      }}
     >
-      {status.replaceAll("_", " ")}
-    </Chip>
+      <Text style={{ color: tone.textColor, fontWeight: "900", fontSize: 11, letterSpacing: 0 }}>
+        {label}
+      </Text>
+    </View>
   );
 }

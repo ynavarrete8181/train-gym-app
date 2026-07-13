@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
-import { Image, View, ScrollView, StyleSheet } from "react-native";
+import { useCallback, useRef, useState, useMemo } from "react";
+import { Image, View, ScrollView, StyleSheet, RefreshControl } from "react-native";
 import { Text, ActivityIndicator, Searchbar } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getRMs } from "../../../features/explore/exploreService";
 import { normalizeAssetUrl } from "../../../api/apiClient";
 import { appStyles } from "../../../theme/theme";
@@ -10,18 +11,25 @@ import AppCard from "../../../components/common/AppCard";
 import AppHeader from "../../../components/common/AppHeader";
 import EmptyState from "../../../components/common/EmptyState";
 import AppBadge from "../../../components/common/AppBadge";
+import { getScreenBottomPadding } from "../../../theme/layout";
+import { useRefreshOnFocus } from "../../../hooks/useRefreshOnFocus";
 
 export default function RMsPage() {
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
   const [rms, setRms] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
+  const loadRms = useCallback(() => {
+    setLoading(true);
     getRMs()
       .then(setRms)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useRefreshOnFocus(scrollRef, loadRms);
 
   const filteredRms = useMemo(() => {
     if (!rms) return [];
@@ -30,7 +38,7 @@ export default function RMsPage() {
     return rms.filter((rm) => rm.ejercicio && rm.ejercicio.toLowerCase().includes(lowerQuery));
   }, [rms, searchQuery]);
 
-  if (loading) {
+  if (loading && !rms) {
     return (
       <View style={[appStyles.screen, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator animating color={colors.primary} />
@@ -48,7 +56,11 @@ export default function RMsPage() {
         showSettings
       />
 
-      <ScrollView contentContainerStyle={[appStyles.container, { gap: 16, paddingTop: 18, paddingBottom: 112 }]}>
+      <ScrollView 
+        ref={scrollRef} 
+        contentContainerStyle={[appStyles.container, { gap: 16, paddingTop: 18, paddingBottom: getScreenBottomPadding(insets.bottom, 28) }]}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadRms} tintColor={colors.primary} />}
+      >
         <Searchbar
           placeholder="Buscar ejercicio..."
           onChangeText={setSearchQuery}
@@ -86,6 +98,7 @@ export default function RMsPage() {
             ))
           ) : (
             <EmptyState
+              icon={searchQuery ? "database-search-outline" : "weight-lifter"}
               title={searchQuery ? "Sin coincidencias" : "Sin RMs registrados"}
               subtitle={searchQuery ? "No se encontraron ejercicios con ese nombre." : "Aun no tienes marcas de fuerza registradas."}
             />
@@ -94,7 +107,7 @@ export default function RMsPage() {
       </ScrollView>
 
       {/* Botón flotante para agregar RM */}
-      <View style={styles.fabContainer}>
+      <View style={[styles.fabContainer, { bottom: getScreenBottomPadding(insets.bottom, 8) }]}>
         <View style={styles.fab}>
           <MaterialCommunityIcons name="plus" size={28} color={colors.white} />
         </View>
@@ -239,7 +252,6 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 24,
     right: 24,
     zIndex: 100,
   },
