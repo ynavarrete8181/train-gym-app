@@ -41,6 +41,7 @@ export default function HomePage() {
       { title: "RM", icon: "trophy-outline", iconColor: colors.danger, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/rms") },
       { title: "Progreso", icon: "chart-line-variant", iconColor: colors.success, bgColor: colors.surface, onPress: () => router.push("/(tabs)/progress") },
       { title: "Factura", icon: "receipt-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/facturas") },
+      { title: "Avisos", icon: "bell-outline", iconColor: colors.accent, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/notificaciones") },
     ];
   }, [router]);
 
@@ -150,17 +151,21 @@ export default function HomePage() {
               </View>
 
               <View style={styles.planCopy}>
-                <Text style={styles.planMeta}>{getTodayLabel()} · Semana 1</Text>
+                <Text style={styles.planMeta}>
+                  {plan.diaActualLabel || getTodayLabel()} · Semana {plan.semanaActual || 1}
+                </Text>
                 <Text style={styles.planTitle} numberOfLines={1}>
                   {plan.nombre || "Plan actual"}
                 </Text>
                 <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: plan.porcentaje ? `${plan.porcentaje}%` : "0%" }]} />
+                  <View style={[styles.progressFill, { width: `${Math.min(Number(plan.porcentaje || 0), 100)}%` }]} />
                 </View>
-                <Text style={styles.planMeta}>0 / {plan.diasConfigurados || 4} ejercicios completados</Text>
+                <Text style={styles.planMeta}>
+                  {Number(plan.ejerciciosCompletados || 0)} / {Number(plan.ejerciciosTotal || 0)} ejercicios completados
+                </Text>
               </View>
 
-              <Text style={styles.percent}>{plan.porcentaje || 0}%</Text>
+              <Text style={styles.percent}>{Number(plan.porcentaje || 0)}%</Text>
             </View>
           </AppCard>
         )}

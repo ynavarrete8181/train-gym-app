@@ -59,7 +59,7 @@ export default function PlanesPage() {
       <AppHeader
         icon="card-account-details-star-outline"
         title="Planes"
-        subtitle="Membresías disponibles para entrenar en Revive."
+        subtitle="Membresias disponibles para entrenar en Revive."
         showBack
         showSettings
       />
@@ -90,7 +90,7 @@ export default function PlanesPage() {
           <EmptyState
             icon="card-account-details-star-outline"
             title={searchQuery ? "Sin resultados" : "Sin planes disponibles"}
-            subtitle={searchQuery ? "No encontramos un plan con ese criterio." : "Aún no hay membresías activas para mostrar."}
+            subtitle={searchQuery ? "No encontramos un plan con ese criterio." : "Aun no hay membresias activas para mostrar."}
           />
         )}
       </ScrollView>
