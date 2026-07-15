@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Chip, Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppCard from "../../components/common/AppCard";
+import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
 import WebSemanticButton from "../../components/common/WebSemanticButton";
 import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../features/dashboard/useDashboard";
@@ -28,21 +29,22 @@ export default function ProfilePage() {
   useRefreshOnFocus(scrollRef, reload, { skipInitial: true });
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      style={appStyles.screen}
-      contentContainerStyle={[
-        appStyles.container,
-        {
-          gap: 18,
-          paddingTop: getScreenTopPadding(insets.top, 18),
-          paddingBottom: getScreenBottomPadding(insets.bottom),
-        },
-      ]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.primary} />}
-    >
-      <Text style={{ fontSize: 28, fontWeight: "900", color: colors.text }}>Perfil</Text>
+    <AppWatermarkBackground style={appStyles.screen}>
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={[
+          appStyles.container,
+          {
+            gap: 18,
+            paddingTop: getScreenTopPadding(insets.top, 18),
+            paddingBottom: getScreenBottomPadding(insets.bottom),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.primary} />}
+      >
+        <Text style={{ fontSize: 28, fontWeight: "900", color: colors.text }}>Perfil</Text>
 
       <AppCard style={{ backgroundColor: colors.secondary, borderColor: "rgba(255,255,255,0.06)" }}>
         <View style={{ gap: 14 }}>
@@ -107,7 +109,8 @@ export default function ProfilePage() {
           />
         </View>
       </AppCard>
-    </ScrollView>
+      </ScrollView>
+    </AppWatermarkBackground>
   );
 }
 

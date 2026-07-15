@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { getBottomSafePadding, getScreenTopPadding } from '../../theme/layout';
+import { modalStyles } from '../../theme/modalStyles';
 import WebSemanticButton from '../common/WebSemanticButton';
 
 export default function SecuenciaEjecucionModal({
@@ -33,11 +34,12 @@ export default function SecuenciaEjecucionModal({
     const nextSets = Array.from({ length: rowsCount }).map((_, i) => {
       const saved = savedSeries[i];
       const planned = plannedSeries[i] || {};
+      const plannedLoad = getPlannedLoadValue(planned, initialLoad);
       return {
         id: i + 1,
-        carga: saved?.carga ? String(saved.carga) : normalizeInitialLoad(planned.target_load || initialLoad),
+        carga: saved?.carga ? String(saved.carga) : plannedLoad.value,
         reps: saved?.reps ? String(saved.reps) : String(planned.reps || initialReps || ''),
-        targetLoad: planned.target_load || initialLoad || 'Libre',
+        targetLoad: plannedLoad.hint,
         targetReps: planned.reps || initialReps || '',
         completed: Boolean(saved?.completado),
       };
@@ -81,20 +83,35 @@ export default function SecuenciaEjecucionModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : null}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={modalStyles.overlay}>
+        <View
+          style={[
+            modalStyles.modalContainer,
+            {
+              marginTop: getScreenTopPadding(insets.top, 8),
+              marginBottom: getBottomSafePadding(insets.bottom, 8),
+            },
+          ]}
+        >
         {/* Header Modal */}
-        <View style={[styles.header, { paddingTop: getScreenTopPadding(insets.top, 12) }]}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerSubtitle}>Secuencia de Ejecución</Text>
-            <Text style={styles.headerTitle}>{exerciseName}</Text>
+        <View style={modalStyles.header}>
+          <View style={modalStyles.headerContent}>
+            <View style={modalStyles.iconBox}>
+              <MaterialCommunityIcons name="play-circle-outline" size={20} color={colors.text} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={modalStyles.title}>Secuencia de Ejecución</Text>
+              <Text style={modalStyles.subtitle} numberOfLines={1}>{exerciseName}</Text>
+            </View>
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+          <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
             <MaterialCommunityIcons name="close" size={24} color={colors.white} />
           </TouchableOpacity>
         </View>
+        <View style={modalStyles.yellowAccent} />
 
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: getBottomSafePadding(insets.bottom, 28) }]}>
+        <ScrollView style={modalStyles.content} contentContainerStyle={{ paddingBottom: 20 }}>
           
           {/* Tabla de Sets */}
           <View style={styles.tableHeader}>
@@ -191,26 +208,29 @@ export default function SecuenciaEjecucionModal({
         </ScrollView>
 
         {/* Botones */}
-        <View style={[styles.footer, { paddingBottom: getBottomSafePadding(insets.bottom, 12) }]}>
-          <View style={{ flex: 1 }}>
+        <View style={[styles.footer, { paddingBottom: getBottomSafePadding(insets.bottom, 16) }]}>
+          <View style={styles.footerButton}>
             <WebSemanticButton 
               label="Cancelar"
+              icon="close"
               tone="danger"
               borderWidth={1}
               onPress={onClose}
-              style={{ backgroundColor: colors.surface }}
+              style={styles.actionButton}
             />
           </View>
-          <View style={{ flex: 1.5 }}>
+          <View style={styles.footerButton}>
             <WebSemanticButton 
-              label="Guardar Secuencia"
+              label="Guardar"
               icon="content-save"
               tone="primary"
               onPress={handleSave}
+              style={styles.actionButton}
             />
           </View>
         </View>
 
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -218,39 +238,42 @@ export default function SecuenciaEjecucionModal({
 
 function normalizeInitialLoad(value) {
   if (!value || value === 'Libre') return '';
+  if (String(value).includes('%')) return '';
   return String(value).replace(/[^\d.,]/g, '');
 }
 
+function getPlannedLoadValue(planned, fallbackLoad) {
+  const roundedLoad = planned?.prescripcion_carga?.carga_redondeada;
+  if (roundedLoad != null && Number.isFinite(Number(roundedLoad))) {
+    const kg = formatKg(roundedLoad);
+    return {
+      value: kg,
+      hint: `${kg} kg plan`,
+    };
+  }
+
+  const targetLoad = planned?.target_load || fallbackLoad || '';
+  if (String(targetLoad).includes('%')) {
+    return {
+      value: '',
+      hint: 'RM pendiente',
+    };
+  }
+
+  const normalized = normalizeInitialLoad(targetLoad);
+  return {
+    value: normalized,
+    hint: normalized ? `${normalized} kg plan` : targetLoad || 'Libre',
+  };
+}
+
+function formatKg(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '';
+  return String(Math.round(number * 100) / 100).replace(/\.00$/, '');
+}
+
 const styles = StyleSheet.create({
-  header: {
-    backgroundColor: colors.primaryDark,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerContent: {
-    gap: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.textSoft,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 22,
-    color: colors.white,
-    fontWeight: '900',
-  },
-  closeBtn: {
-    padding: 8,
-  },
-  content: {
-    padding: 24,
-  },
   tableHeader: {
     flexDirection: 'row',
     marginBottom: 12,
@@ -361,10 +384,18 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     gap: 12,
-  }
+  },
+  footerButton: {
+    flex: 1,
+  },
+  actionButton: {
+    minHeight: 44,
+    backgroundColor: colors.surface,
+  },
 });

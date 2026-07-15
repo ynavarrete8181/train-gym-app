@@ -7,6 +7,8 @@ import { LineChart } from "react-native-gifted-charts";
 import AppCard from "../../components/common/AppCard";
 import AppHeader from "../../components/common/AppHeader";
 import AppModal from "../../components/common/AppModal";
+import AppSegmentedSelector from "../../components/common/AppSegmentedSelector";
+import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
 import EmptyState from "../../components/common/EmptyState";
 import { getRoutineByDay } from "../../features/routine/routineService";
 import { getProgressSummary } from "../../features/progress/progressService";
@@ -56,18 +58,18 @@ export default function ProgressPage() {
 
   if (loading && !summary && !noPlan) {
     return (
-      <View style={[appStyles.screen, { alignItems: "center", justifyContent: "center" }]}>
+      <AppWatermarkBackground style={appStyles.screen} contentStyle={{ alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator animating color={colors.primary} />
-      </View>
+      </AppWatermarkBackground>
     );
   }
 
   if (noPlan) {
     return (
-      <View style={appStyles.screen}>
+      <AppWatermarkBackground style={appStyles.screen}>
         <AppHeader
           icon="chart-line-variant"
-          title="Evolución"
+          title="Progreso"
           subtitle="Tu rendimiento y consistencia."
           showSettings
           rounded
@@ -77,7 +79,7 @@ export default function ProgressPage() {
           title="Sin datos de evolución"
           subtitle="Aún no tienes una asignación de plan activa para generar estadísticas de tu progreso."
         />
-      </View>
+      </AppWatermarkBackground>
     );
   }
 
@@ -96,51 +98,29 @@ export default function ProgressPage() {
   filterOptions.push({ id: 'todo', label: 'Todo el Plan' });
 
   return (
-    <View style={appStyles.screen}>
+    <AppWatermarkBackground style={appStyles.screen}>
       <AppHeader
         icon="chart-line-variant"
-        title="Evolución"
+        title="Progreso"
         subtitle="Tu rendimiento y consistencia."
         showSettings
         rounded
       />
       
       <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-          {filterOptions.map((opt) => {
-            const isActive = filter === opt.id;
-            return (
-              <TouchableOpacity 
-                key={opt.id}
-                disabled={isRefreshingData}
-                onPress={() => {
-                  if (filter !== opt.id) {
-                    setSelectedWeek(null);
-                    setSelectedExercise(null);
-                    setFilter(opt.id);
-                  }
-                }}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? colors.primary : colors.surfaceAlt,
-                  borderWidth: 1,
-                  borderColor: isActive ? colors.primary : colors.border,
-                  opacity: isRefreshingData && !isActive ? 0.58 : 1,
-                }}
-              >
-                <Text style={{ 
-                  color: isActive ? colors.surface : colors.textSoft, 
-                  fontWeight: isActive ? "800" : "600",
-                  fontSize: 13
-                }}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <AppSegmentedSelector
+          options={filterOptions.map((option) => ({ value: option.id, label: option.label }))}
+          value={filter}
+          compact
+          disabled={isRefreshingData}
+          onChange={(nextFilter) => {
+            if (filter !== nextFilter) {
+              setSelectedWeek(null);
+              setSelectedExercise(null);
+              setFilter(nextFilter);
+            }
+          }}
+        />
         {isRefreshingData ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }}>
             <ActivityIndicator animating color={colors.primary} size="small" />
@@ -160,24 +140,17 @@ export default function ProgressPage() {
 
         <AppCard>
           <View style={{ gap: 14 }}>
-            <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
-                  Reporte de Peso y Repeticiones
-                </Text>
-                <Text style={{ color: colors.textSoft, fontSize: 12, fontWeight: "700" }}>
-                  {hasLoadData
-                    ? "Resumen de lo que moviste según las secuencias registradas."
-                    : "Por ahora solo hay repeticiones. Cuando registres kg, aparecerán carga y volumen."}
-                </Text>
-              </View>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <Text style={{ flex: 1, fontSize: 18, fontWeight: "900", color: colors.text }}>
+                Reporte de Peso y Repeticiones
+              </Text>
               <TouchableOpacity
                 onPress={() => setShowComparisonHelp(true)}
                 activeOpacity={0.82}
                 style={{
                   width: 34,
                   height: 34,
-                  borderRadius: 17,
+                  borderRadius: 8,
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 1,
@@ -264,7 +237,7 @@ export default function ProgressPage() {
       />
 
       <ComparisonHelpModal visible={showComparisonHelp} onClose={() => setShowComparisonHelp(false)} />
-    </View>
+    </AppWatermarkBackground>
   );
 }
 
@@ -302,20 +275,35 @@ function MetricChip({ icon, label, value, color }) {
   return (
     <View
       style={{
+        flexBasis: "48.5%",
+        minHeight: 46,
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 10,
+        paddingVertical: 7,
+        paddingHorizontal: 9,
         borderRadius: 999,
         borderWidth: 1,
         borderColor: colors.border,
         backgroundColor: colors.surfaceAlt,
       }}
     >
-      <MaterialCommunityIcons name={icon} size={16} color={color} />
-      <Text style={{ color: colors.textSoft, fontSize: 11, fontWeight: "800" }}>{label}</Text>
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: "900" }}>{value}</Text>
+      <View
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#fff",
+        }}
+      >
+        <MaterialCommunityIcons name={icon} size={14} color={color} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ color: colors.textSoft, fontSize: 10, fontWeight: "800" }} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
+        <Text style={{ color: colors.text, fontSize: 12, fontWeight: "900" }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      </View>
     </View>
   );
 }

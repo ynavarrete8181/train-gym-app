@@ -115,6 +115,11 @@ export default function EvaluacionesPage() {
             </View>
 
             <View>
+              <Text style={styles.label}>Tipo de evaluacion</Text>
+              <Text style={styles.value}>{selectedEval.tipo_evaluacion || "Evaluacion fisica"}</Text>
+            </View>
+
+            <View>
               <Text style={styles.label}>Resumen</Text>
               <Text style={styles.textValue}>{selectedEval.resultado_resumen || 'Sin resumen'}</Text>
             </View>
@@ -154,24 +159,15 @@ function EvaluationCard({ item, active, onPress }) {
             <View style={styles.cardTop}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardDate}>Evaluacion {formatDate(item.fecha_evaluacion)}</Text>
-                <Text style={styles.cardSubtitle}>{item.resultado_resumen || "Sin resumen registrado"}</Text>
               </View>
-              <AppBadge tone={levelStyle.badgeTone}>{item.tipo_evaluacion || "Evaluacion"}</AppBadge>
+              <AppBadge tone={levelStyle.badgeTone}>{item.nivel_resultado || "Pendiente"}</AppBadge>
             </View>
 
-            <Text style={[styles.levelTitle, { color: levelStyle.color }]}>{item.nivel_resultado || "-"}</Text>
-
-            <View style={styles.metricsRow}>
-              <MiniMetric label="Tipo" value={item.tipo_evaluacion || "-"} />
-              <MiniMetric label="Proxima" value={formatDateShort(item.fecha_proxima_evaluacion)} />
-            </View>
+            <Text style={styles.cardHint}>Toca para revisar el detalle completo</Text>
           </View>
         </View>
 
         <View style={styles.bottomRow}>
-          <Text style={styles.bottomText} numberOfLines={1}>
-            {item.observaciones ? "Con observaciones" : "Sin observaciones"}
-          </Text>
           <WebSemanticButton
             label="Ver detalle"
             icon="file-document-outline"
@@ -197,15 +193,6 @@ function DateTile({ value }) {
       <Text style={styles.dateTileDay}>{day}</Text>
       <Text style={styles.dateTileMonth}>{month}</Text>
       <Text style={styles.dateTileYear}>{year}</Text>
-    </View>
-  );
-}
-
-function MiniMetric({ label, value }) {
-  return (
-    <View style={styles.miniMetric}>
-      <Text style={styles.miniMetricLabel}>{label}</Text>
-      <Text style={styles.miniMetricValue} numberOfLines={1} adjustsFontSizeToFit>{value || "-"}</Text>
     </View>
   );
 }
@@ -237,11 +224,6 @@ function parseDate(value) {
 function formatDate(value) {
   const date = parseDate(value);
   return date ? date.toLocaleDateString() : "-";
-}
-
-function formatDateShort(value) {
-  const date = parseDate(value);
-  return date ? date.toLocaleDateString(undefined, { day: "2-digit", month: "short" }) : "-";
 }
 
 const styles = StyleSheet.create({
@@ -319,45 +301,14 @@ const styles = StyleSheet.create({
     ...typography.itemTitle,
     fontSize: 16,
   },
-  cardSubtitle: {
+  cardHint: {
     ...typography.itemSubtitle,
-    marginTop: 2,
-  },
-  levelTitle: {
-    ...typography.itemTitle,
-    fontSize: 16,
-    textTransform: "uppercase",
-  },
-  metricsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  miniMetric: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  miniMetricLabel: {
-    ...typography.metricLabel,
-  },
-  miniMetricValue: {
-    ...typography.metricValue,
     marginTop: 2,
   },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  bottomText: {
-    flex: 1,
-    color: colors.textSoft,
-    fontSize: 12,
-    fontWeight: "800",
+    justifyContent: "flex-end",
   },
   label: {
     ...typography.label,

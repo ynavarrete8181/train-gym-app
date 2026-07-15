@@ -1,28 +1,13 @@
-import { ScrollView, View, TouchableOpacity, StyleSheet } from "react-native";
-import { Text } from "react-native-paper";
-import { appStyles } from "../../theme/theme";
+import { View, StyleSheet } from "react-native";
+import AppSegmentedSelector from "../common/AppSegmentedSelector";
 
 export default function WeekSelector({ totalWeeks = 4, selectedWeek, onSelectWeek }) {
   const weeks = Array.from({ length: Math.max(1, totalWeeks) }, (_, index) => index + 1);
+  const options = weeks.map((week) => ({ value: week, label: `Semana ${week}` }));
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {weeks.map((week) => {
-          const isSelected = selectedWeek === week;
-          return (
-            <TouchableOpacity
-              key={week}
-              style={[appStyles.pillButton, isSelected && appStyles.pillButtonActive]}
-              onPress={() => onSelectWeek(week)}
-            >
-              <Text style={[appStyles.buttonText, isSelected && appStyles.buttonTextActive]}>
-                Semana {week}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <AppSegmentedSelector options={options} value={selectedWeek} onChange={onSelectWeek} compact />
     </View>
   );
 }
@@ -30,8 +15,5 @@ export default function WeekSelector({ totalWeeks = 4, selectedWeek, onSelectWee
 const styles = StyleSheet.create({
   container: {
     marginVertical: 4,
-  },
-  scrollContent: {
-    gap: 8,
   },
 });

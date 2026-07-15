@@ -1,4 +1,4 @@
-import { ScrollView, View, RefreshControl, StyleSheet } from "react-native";
+import { ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRef, useState } from "react";
 import EmptyState from "../../components/common/EmptyState";
@@ -7,8 +7,9 @@ import ExerciseCard from "../../components/routine/ExerciseCard";
 import RoutineHeader from "../../components/routine/RoutineHeader";
 import WeekSelector from "../../components/routine/WeekSelector";
 import DaySelector from "../../components/routine/DaySelector";
-import ExecutionModal from "../../components/routine/ExecutionModal";
+import SecuenciaEjecucionModal from "../../components/routine/SecuenciaEjecucionModal";
 import AppHeader from "../../components/common/AppHeader";
+import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
 import { useRoutine } from "../../features/routine/useTodayRoutine";
 import { registerExecution } from "../../features/routine/routineService";
 import { appStyles } from "../../theme/theme";
@@ -53,6 +54,7 @@ export default function RoutinePage() {
   const handleSaveExecution = async (payload) => {
     try {
       // Agregar datos necesarios que no vienen del modal
+      payload.plan_ejercicio_id = selectedExercise?.plan_ejercicio_id;
       payload.plan_id = routine.planId;
       payload.semana = selectedWeek || routine.week || 1;
       payload.dia = selectedDay || routine.day;
@@ -121,7 +123,7 @@ export default function RoutinePage() {
   };
 
   return (
-    <View style={appStyles.screen}>
+    <AppWatermarkBackground style={appStyles.screen}>
       <AppHeader
         icon="dumbbell"
         title="Rutina"
@@ -168,12 +170,17 @@ export default function RoutinePage() {
         {renderContent()}
       </ScrollView>
 
-      {/* Modal de Ejecución */}
-      <ExecutionModal 
+      {/* Modal de Secuencia de Ejecución */}
+      <SecuenciaEjecucionModal
         visible={!!selectedExercise}
-        exercise={selectedExercise}
         onClose={() => setSelectedExercise(null)}
         onSave={handleSaveExecution}
+        exerciseName={selectedExercise?.name}
+        initialSeries={parseInt(selectedExercise?.series, 10) || 1}
+        initialReps={selectedExercise?.reps}
+        initialLoad={selectedExercise?.load}
+        plannedSeries={selectedExercise?.plannedSeries || []}
+        initialExecution={selectedExercise?.ejecucion}
       />
 
       <CustomAlert 
@@ -183,7 +190,7 @@ export default function RoutinePage() {
         type={alertConfig.type}
         onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
       />
-    </View>
+    </AppWatermarkBackground>
   );
 }
 

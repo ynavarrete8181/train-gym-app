@@ -303,12 +303,10 @@ export default function FacturasPage() {
       if (openId && data) {
         const match = data.find((f) => f.id.toString() === openId.toString());
         if (match) {
-          handlePrint(match);
+          setSelectedFactura(match);
         }
       }
     });
-    // handlePrint uses screen state and should not retrigger the invoice load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadFacturas, openId]);
 
   const filteredFacturas = useMemo(() => {
@@ -322,6 +320,14 @@ export default function FacturasPage() {
         (f.observacion && f.observacion.toLowerCase().includes(lowerQuery))
     );
   }, [facturas, searchQuery]);
+
+  const pendingSummary = useMemo(() => {
+    const pendientes = (facturas || []).filter((factura) => isPendingInvoice(factura));
+    return {
+      count: pendientes.length,
+      total: pendientes.reduce((sum, factura) => sum + getPendingAmount(factura), 0),
+    };
+  }, [facturas]);
 
   const getFormaPagoColor = (forma) => {
     if (!forma) return { bg: "rgba(107, 114, 128, 0.1)", text: "#6B7280" };
@@ -372,11 +378,30 @@ export default function FacturasPage() {
           inputStyle={{ color: colors.text }}
         />
 
+        {pendingSummary.count > 0 ? (
+          <AppCard style={styles.pendingSummaryCard}>
+            <View style={styles.pendingSummaryRow}>
+              <View style={styles.pendingIcon}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={22} color="#B91C1C" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingTitle}>Tienes facturas pendientes de pago</Text>
+                <Text style={styles.pendingSubtitle}>
+                  {pendingSummary.count} {pendingSummary.count === 1 ? "factura" : "facturas"} por cancelar
+                </Text>
+              </View>
+              <Text style={styles.pendingAmount}>${pendingSummary.total.toFixed(2)}</Text>
+            </View>
+          </AppCard>
+        ) : null}
+
         <View style={{ gap: 12 }}>
           {filteredFacturas.length > 0 ? (
             filteredFacturas.map((factura) => {
               const paymentStyle = getFormaPagoColor(factura.forma_pago);
               const estadoPagoTexto = (factura.estado_pago || (factura.estado === 1 ? "PAGADO" : "PENDIENTE")).toUpperCase();
+              const isPending = isPendingInvoice(factura);
+              const pendingAmount = getPendingAmount(factura);
               return (
                 <AppCard key={factura.id} style={styles.facturaCard}>
                   <View style={styles.facturaHeader}>
@@ -393,10 +418,12 @@ export default function FacturasPage() {
 
                   <View style={styles.facturaBody}>
                     <View>
-                      <Text style={styles.totalLabel}>TOTAL</Text>
-                      <Text style={styles.totalValue}>${parseFloat(factura.total).toFixed(2)}</Text>
+                      <Text style={styles.totalLabel}>{isPending ? "SALDO PENDIENTE" : "TOTAL"}</Text>
+                      <Text style={[styles.totalValue, isPending && { color: "#B91C1C" }]}>
+                        ${parseFloat(isPending ? pendingAmount : factura.total).toFixed(2)}
+                      </Text>
                       <Text style={[styles.fecha, { color: estadoPagoTexto === "PAGADO" ? "#10b981" : "#b91c1c", marginTop: 4 }]}>
-                        {estadoPagoTexto === "PENDIENTE" ? "PENDIENTE DE PAGO" : estadoPagoTexto}
+                        {isPending ? "PENDIENTE DE PAGO" : estadoPagoTexto}
                       </Text>
                     </View>
                     <View style={styles.detallesSummary}>
@@ -467,6 +494,18 @@ export default function FacturasPage() {
             <ScrollView style={{ padding: 20 }}>
               {selectedFactura && (
                 <View style={{ gap: 20 }}>
+                  {isPendingInvoice(selectedFactura) ? (
+                    <View style={styles.pendingDetailBox}>
+                      <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#B91C1C" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.pendingDetailTitle}>Factura pendiente de pago</Text>
+                        <Text style={styles.pendingDetailText}>
+                          Saldo por cancelar: ${getPendingAmount(selectedFactura).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+
                   <View style={styles.detailMetaRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.label}>Fecha</Text>
@@ -540,21 +579,31 @@ export default function FacturasPage() {
                       <Text style={styles.summaryValue}>${parseFloat(selectedFactura.iva || 0).toFixed(2)}</Text>
                     </View>
                     <View style={[styles.summaryRow, { marginTop: 4 }]}>
-                      <Text style={styles.totalLabelBig}>Total Pagado</Text>
-                      <Text style={styles.totalValueBig}>${parseFloat(selectedFactura.total).toFixed(2)}</Text>
+                      <Text style={styles.totalLabelBig}>{isPendingInvoice(selectedFactura) ? "Saldo pendiente" : "Total pagado"}</Text>
+                      <Text style={[styles.totalValueBig, isPendingInvoice(selectedFactura) && { color: "#B91C1C" }]}>
+                        ${parseFloat(isPendingInvoice(selectedFactura) ? getPendingAmount(selectedFactura) : selectedFactura.total).toFixed(2)}
+                      </Text>
                     </View>
                   </View>
                 </View>
               )}
             </ScrollView>
 
-            <View style={{ padding: 16 }}>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => setSelectedFactura(null)}>
+            <View style={styles.detailFooter}>
+              <TouchableOpacity style={[styles.btnCancel, styles.detailFooterButton]} onPress={() => setSelectedFactura(null)}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <MaterialCommunityIcons name="close" size={18} color={colors.danger} />
                   <Text style={styles.btnCancelText}>Cerrar</Text>
                 </View>
               </TouchableOpacity>
+              <WebSemanticButton
+                label="Compartir"
+                icon="share-variant"
+                tone="primary"
+                onPress={() => handlePrint(selectedFactura)}
+                style={styles.detailFooterButton}
+                borderWidth={1.5}
+              />
             </View>
           </View>
         </View>
@@ -664,6 +713,18 @@ export default function FacturasPage() {
   );
 }
 
+function isPendingInvoice(factura) {
+  const estado = String(factura?.estado_pago || "").toUpperCase();
+  const saldo = Number(factura?.saldo_pendiente || 0);
+  return estado === "PENDIENTE" || estado === "ABONADO" || saldo > 0;
+}
+
+function getPendingAmount(factura) {
+  const saldo = Number(factura?.saldo_pendiente || 0);
+  if (saldo > 0) return saldo;
+  return Number(factura?.total || 0);
+}
+
 const styles = StyleSheet.create({
   darkHeader: {
     backgroundColor: "#0F172A",
@@ -704,6 +765,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     marginBottom: 8,
+  },
+  pendingSummaryCard: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(185, 28, 28, 0.18)",
+    backgroundColor: "#FEF2F2",
+  },
+  pendingSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  pendingIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#7F1D1D",
+  },
+  pendingSubtitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#991B1B",
+    marginTop: 2,
+  },
+  pendingAmount: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#B91C1C",
   },
   facturaCard: {
     padding: 16,
@@ -825,6 +921,27 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 4,
   },
+  pendingDetailBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  pendingDetailTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#7F1D1D",
+  },
+  pendingDetailText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#991B1B",
+    marginTop: 2,
+  },
   divider: {
     height: 1,
     backgroundColor: "rgba(17, 24, 39, 0.08)",
@@ -902,6 +1019,16 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: colors.primaryStrong,
   },
+  detailFooter: {
+    padding: 16,
+    flexDirection: "row",
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  detailFooterButton: {
+    flex: 1,
+  },
   btnCancel: {
     borderWidth: 1.5,
     borderColor: colors.danger,
@@ -913,19 +1040,6 @@ const styles = StyleSheet.create({
   },
   btnCancelText: {
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  btnShare: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnShareText: {
-    color: "white",
     fontSize: 13,
     fontWeight: "900",
     textTransform: "uppercase",

@@ -11,7 +11,6 @@ import WebSemanticButton from "../common/WebSemanticButton";
 export default function ExerciseCard({ item, planId, week, day, onExecute }) {
   const router = useRouter();
   const statusTone = getStatusTone(item.status);
-  const completedSeries = item.ejecucion?.series?.filter((serie) => serie.completado)?.length || 0;
 
   return (
     <AppCard style={[styles.card, { borderLeftColor: statusTone.color }]}>

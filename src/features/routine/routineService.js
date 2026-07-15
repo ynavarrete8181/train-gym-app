@@ -57,3 +57,13 @@ export const registerExecution = async (payload) => {
     throw error;
   }
 };
+
+export const calculateTemporaryRmLoads = async (payload) => {
+  const { data } = await apiClient.post('/app/rutinas/calcular-rm-temporal', payload);
+  return data;
+};
+
+export const clearTemporaryRm = async (payload) => {
+  const { data } = await apiClient.delete('/app/rutinas/rm-temporal', { data: payload });
+  return data;
+};

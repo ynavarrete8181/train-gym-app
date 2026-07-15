@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { View, ScrollView, StyleSheet, Modal as RNModal, TouchableOpacity, RefreshControl } from "react-native";
+import { View, ScrollView, StyleSheet, Modal as RNModal, TouchableOpacity, RefreshControl, TextInput } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LineChart } from "react-native-gifted-charts";
@@ -8,6 +8,7 @@ import Svg, { Circle, Line as SvgLine, Path, Text as SvgText } from "react-nativ
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AppCard from "../../components/common/AppCard";
 import AppModal from "../../components/common/AppModal";
+import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
 import WebSemanticButton from "../../components/common/WebSemanticButton";
 import AppHeader from "../../components/common/AppHeader";
 import LoadingView from "../../components/common/LoadingView";
@@ -23,13 +24,18 @@ import { colors } from "../../theme/colors";
 import { typography } from "../../theme/typography";
 import { modalStyles } from "../../theme/modalStyles";
 import { getBottomSafePadding, getScreenBottomPadding, getScreenTopPadding } from "../../theme/layout";
+import { calculateTemporaryRmLoads, clearTemporaryRm, getRoutineByDay } from "../../features/routine/routineService";
 
 export default function ExerciseDetailPage() {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { id } = params;
-  const plannedSeries = parsePlannedSeries(params.planned_series);
+  const initialPlannedSeries = parsePlannedSeries(params.planned_series);
   const [detail, setDetail] = useState(null);
+  const [plannedSeries, setPlannedSeries] = useState(initialPlannedSeries);
+  const [manualRm, setManualRm] = useState("");
+  const [calculatingRm, setCalculatingRm] = useState(false);
+  const [rmCalculationError, setRmCalculationError] = useState("");
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('carga');
   const [showChartModal, setShowChartModal] = useState(false);
@@ -46,7 +52,11 @@ export default function ExerciseDetailPage() {
         day: params.day,
       },
     });
-    setDetail(data.data);
+    const nextDetail = data.data;
+    setDetail(nextDetail);
+    if (nextDetail?.ejecucion?.rm_estimado_temporal) {
+      setManualRm(String(nextDetail.ejecucion.rm_estimado_temporal));
+    }
   }, [id, params.day, params.plan_ejercicio_id, params.plan_id, params.week]);
 
   useEffect(() => {
@@ -61,6 +71,123 @@ export default function ExerciseDetailPage() {
     };
     loadData();
   }, [id, loadExerciseDetail]);
+
+  const initiallyMissingRm = initialPlannedSeries.some((serie) => isMissingRmPrescription(serie));
+  const hasMissingRm = plannedSeries.some((serie) => isMissingRmPrescription(serie));
+  const hasCalculatedTemporaryRm = plannedSeries.some((serie) => serie?.prescripcion_carga?.rm_origen === "estimado_manual_sesion");
+  const showRmEstimateBox = initiallyMissingRm || hasMissingRm || hasCalculatedTemporaryRm;
+  const manualRmNumber = normalizeNumericInput(manualRm);
+
+  const handleApplyTemporaryRm = async () => {
+    const rm = normalizeNumericInput(manualRm);
+    if (!rm) {
+      setRmCalculationError("Ingresa un RM estimado válido.");
+      return;
+    }
+
+    const planId = params.plan_id || detail?.plan_id;
+    const planExerciseId = params.plan_ejercicio_id || detail?.plan_ejercicio_id;
+
+    if (!planId || !planExerciseId) {
+      setRmCalculationError("No se encontró el contexto del plan para calcular.");
+      return;
+    }
+
+    try {
+      setCalculatingRm(true);
+      setRmCalculationError("");
+      const result = await calculateTemporaryRmLoads({
+        plan_id: planId,
+        plan_ejercicio_id: planExerciseId,
+        rm_estimado: rm,
+        semana: parseInt(params.week || detail?.week || 1, 10),
+        dia: params.day || detail?.day || getCurrentDayKey(),
+        fecha_ejecucion: new Date().toISOString().split("T")[0],
+      });
+      const calculatedSeries = Array.isArray(result?.series) ? result.series : [];
+      setPlannedSeries(calculatedSeries);
+      setDetail((current) => current
+        ? {
+            ...current,
+            ejecucion: {
+              ...(current.ejecucion || {}),
+              rm_estimado_temporal: result?.rm_estimado_temporal ?? rm,
+            },
+          }
+        : current);
+
+      const routineResponse = await getRoutineByDay(
+        parseInt(params.week || detail?.week || 1, 10),
+        params.day || detail?.day || getCurrentDayKey()
+      );
+      const refreshedExercise = routineResponse?.data?.exercises?.find(
+        (exercise) => String(exercise.plan_ejercicio_id) === String(planExerciseId)
+      );
+
+      if (refreshedExercise?.plannedSeries?.length) {
+        setPlannedSeries(refreshedExercise.plannedSeries);
+        setDetail((current) => current
+          ? {
+              ...current,
+              ejecucion: refreshedExercise.ejecucion || current.ejecucion,
+            }
+          : current);
+      }
+    } catch (_error) {
+      setRmCalculationError("No se pudo calcular con ese RM estimado.");
+    } finally {
+      setCalculatingRm(false);
+    }
+  };
+
+  const handleClearTemporaryRm = async () => {
+    const planId = params.plan_id || detail?.plan_id;
+    const planExerciseId = params.plan_ejercicio_id || detail?.plan_ejercicio_id;
+
+    if (planId && planExerciseId) {
+      try {
+        const result = await clearTemporaryRm({
+          plan_id: planId,
+          plan_ejercicio_id: planExerciseId,
+          semana: parseInt(params.week || detail?.week || 1, 10),
+          dia: params.day || detail?.day || getCurrentDayKey(),
+        });
+        if (Array.isArray(result?.series)) {
+          setPlannedSeries(result.series);
+        }
+      } catch (_error) {
+        setRmCalculationError("No se pudo borrar el RM temporal.");
+      }
+    }
+
+    setManualRm("");
+    setDetail((current) => current
+      ? {
+          ...current,
+          ejecucion: current.ejecucion
+            ? { ...current.ejecucion, rm_estimado_temporal: null }
+            : current.ejecucion,
+        }
+      : current);
+
+    const routineResponse = await getRoutineByDay(
+      parseInt(params.week || detail?.week || 1, 10),
+      params.day || detail?.day || getCurrentDayKey()
+    );
+    const refreshedExercise = routineResponse?.data?.exercises?.find(
+      (exercise) => String(exercise.plan_ejercicio_id) === String(planExerciseId)
+    );
+
+    if (refreshedExercise?.plannedSeries?.length) {
+      setPlannedSeries(refreshedExercise.plannedSeries);
+      setDetail((current) => current
+        ? {
+            ...current,
+            ejecucion: refreshedExercise.ejecucion || current.ejecucion,
+          }
+        : current);
+    }
+  };
 
   const handleSaveSequence = async (payload) => {
     try {
@@ -136,7 +263,7 @@ export default function ExerciseDetailPage() {
   });
 
   return (
-    <View style={appStyles.screen}>
+    <AppWatermarkBackground style={appStyles.screen}>
       <AppHeader
         title="Detalle de Ejercicio"
         showBack
@@ -251,8 +378,62 @@ export default function ExerciseDetailPage() {
               </TouchableOpacity>
             </View>
             <SeriesRow label="Objetivo" value={`${params.series || 0} series x ${params.reps || 0} reps`} />
-            <SeriesRow label="Tipo / objetivo" value={params.load || "Libre"} />
+            <SeriesRow label="Tipo / objetivo" value={getPlanTargetLabel(plannedSeries, params.load)} />
             <SeriesRow label="Esfuerzo (RPE)" value={params.rpe || ""} />
+            {showRmEstimateBox ? (
+              <View style={styles.rmEstimateBox}>
+                <View style={styles.rmEstimateHeader}>
+                  <MaterialCommunityIcons
+                    name={hasCalculatedTemporaryRm ? "check-circle" : "alert-circle-outline"}
+                    size={18}
+                    color={hasCalculatedTemporaryRm ? colors.success : colors.warning}
+                  />
+                  <Text style={styles.rmEstimateTitle}>No cuenta con RM registrado</Text>
+                </View>
+                <View style={styles.rmEstimateRow}>
+                  <TextInput
+                    style={styles.rmEstimateInput}
+                    keyboardType="numeric"
+                    value={manualRm}
+                    onChangeText={(value) => {
+                      setManualRm(value);
+                      setRmCalculationError("");
+                    }}
+                    placeholder="RM estimado"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.rmEstimateButton,
+                      (!manualRmNumber || calculatingRm) && styles.rmEstimateButtonDisabled,
+                    ]}
+                    onPress={handleApplyTemporaryRm}
+                    disabled={!manualRmNumber || calculatingRm}
+                  >
+                    <MaterialCommunityIcons
+                      name={calculatingRm ? "loading" : "check"}
+                      size={22}
+                      color={manualRmNumber && !calculatingRm ? "#10B981" : "#9CA3AF"}
+                    />
+                  </TouchableOpacity>
+                  {(manualRm || hasCalculatedTemporaryRm) ? (
+                    <TouchableOpacity
+                      style={styles.rmEstimateClear}
+                      onPress={handleClearTemporaryRm}
+                      accessibilityLabel="Borrar RM estimado"
+                    >
+                      <MaterialCommunityIcons name="close" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                <Text style={styles.rmEstimateHelp}>
+                  {hasCalculatedTemporaryRm
+                    ? "Listo. Las series fueron recalculadas por backend para esta sesión."
+                    : "Ingresa un estimado y presiona el visto verde para ver los pesos antes de iniciar."}
+                </Text>
+                {rmCalculationError ? <Text style={styles.rmEstimateError}>{rmCalculationError}</Text> : null}
+              </View>
+            ) : null}
             <View style={{ marginTop: 14 }}>
               <PlannedSeriesList series={plannedSeries} />
             </View>
@@ -431,7 +612,7 @@ export default function ExerciseDetailPage() {
         type={alertConfig.type}
         onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
       />
-    </View>
+    </AppWatermarkBackground>
   );
 }
 
@@ -443,6 +624,26 @@ function parsePlannedSeries(value) {
   } catch (_error) {
     return [];
   }
+}
+
+function isMissingRmPrescription(serie) {
+  return String(serie?.tipo_carga || "").toUpperCase() === "PORCENTAJE_RM"
+    && serie?.prescripcion_carga
+    && !serie.prescripcion_carga.carga_redondeada;
+}
+
+function normalizeNumericInput(value) {
+  const number = Number(String(value || "").replace(",", "."));
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
+}
+
+function getPlanTargetLabel(series, fallback) {
+  const firstCalculated = series.find((serie) => serie?.prescripcion_carga?.carga_redondeada);
+  if (firstCalculated?.target_load) {
+    return firstCalculated.target_load;
+  }
+
+  return fallback || "Libre";
 }
 
 function getCurrentDayKey() {
@@ -768,6 +969,78 @@ const styles = StyleSheet.create({
   },
   helpText: {
     ...typography.sectionSubtitle,
+  },
+  rmEstimateBox: {
+    gap: 7,
+    marginTop: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+    backgroundColor: "rgba(245,158,11,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  rmEstimateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  rmEstimateTitle: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  rmEstimateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  rmEstimateInput: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.45)",
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  rmEstimateButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.success,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rmEstimateButtonDisabled: {
+    borderColor: "#D1D5DB",
+    backgroundColor: "#F9FAFB",
+  },
+  rmEstimateClear: {
+    width: 38,
+    height: 42,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rmEstimateHelp: {
+    color: colors.textSoft,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "700",
+  },
+  rmEstimateError: {
+    color: "#EF4444",
+    fontSize: 11,
+    fontWeight: "800",
   },
   reportSummaryGrid: {
     flexDirection: "row",

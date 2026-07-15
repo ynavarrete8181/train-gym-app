@@ -9,6 +9,7 @@ import AppCard from "../../components/common/AppCard";
 import OutlineButton from "../../components/common/OutlineButton";
 import QuickActionCard from "../../components/common/QuickActionCard";
 import AppModal from "../../components/common/AppModal";
+import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
 import SmartVideoPlayer from "../../components/routine/SmartVideoPlayer";
 import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../features/dashboard/useDashboard";
@@ -20,6 +21,7 @@ import { getScreenBottomPadding, getScreenTopPadding } from "../../theme/layout"
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 
 const HELP_VIDEO_URL = process.env.EXPO_PUBLIC_HELP_VIDEO_URL;
+const HELP_VIDEO_SOURCE = HELP_VIDEO_URL || require("../../../assets/videos/revive-app-demo.mp4");
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -27,7 +29,7 @@ export default function HomePage() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
   const { data, loading, reload } = useDashboard();
-  const { plan, membresia, factura, deuda, usuario } = data || {};
+  const { plan, membresia, deuda, usuario } = data || {};
   const displayName = getShortName(usuario || user?.name);
   const [helpVisible, setHelpVisible] = useState(false);
 
@@ -37,7 +39,7 @@ export default function HomePage() {
       { title: "Ficha", icon: "account-outline", iconColor: colors.accentDark, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/ficha") },
       { title: "Evaluación", icon: "clipboard-check-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/evaluaciones") },
       { title: "RM", icon: "trophy-outline", iconColor: colors.danger, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/rms") },
-      { title: "Evolución", icon: "chart-line-variant", iconColor: colors.success, bgColor: colors.surface, onPress: () => router.push("/(tabs)/progress") },
+      { title: "Progreso", icon: "chart-line-variant", iconColor: colors.success, bgColor: colors.surface, onPress: () => router.push("/(tabs)/progress") },
       { title: "Factura", icon: "receipt-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/facturas") },
     ];
   }, [router]);
@@ -54,7 +56,7 @@ export default function HomePage() {
   }
 
   return (
-    <View style={appStyles.screen}>
+    <AppWatermarkBackground style={appStyles.screen}>
       <View style={[styles.header, { paddingTop: getScreenTopPadding(insets.top, 10) }]}>
           <View style={styles.headerContent}>
             <View style={styles.headerTopRow}>
@@ -118,17 +120,21 @@ export default function HomePage() {
           <View style={styles.divider} />
 
           <View style={styles.membershipBottom}>
-            <View>
-              <Text style={styles.smallLabel}>{deuda?.tiene_deuda ? "Saldo pendiente" : "Último pago"}</Text>
-              <Text style={[styles.lastPayment, deuda?.tiene_deuda && { color: colors.danger }]}>
-                {deuda?.tiene_deuda ? `$${formatMoney(deuda.saldo_total)}` : factura ? `$${formatMoney(factura.total)}` : "Sin pagos"}
+            <View style={[styles.billingStatus, deuda?.tiene_deuda && styles.billingStatusDanger]}>
+              <MaterialCommunityIcons
+                name={deuda?.tiene_deuda ? "alert-circle-outline" : "check-circle-outline"}
+                size={18}
+                color={deuda?.tiene_deuda ? colors.danger : colors.success}
+              />
+              <Text style={[styles.billingStatusText, deuda?.tiene_deuda && { color: colors.danger }]}>
+                {deuda?.tiene_deuda ? "Pago pendiente" : "Facturación al día"}
               </Text>
             </View>
 
             <OutlineButton
               label="Ver mis facturas"
               icon="file-document-outline"
-              onPress={() => router.push(factura?.id ? { pathname: "/(tabs)/explore/facturas", params: { openId: factura.id } } : "/(tabs)/explore/facturas")}
+              onPress={() => router.push("/(tabs)/explore/facturas")}
               style={styles.invoiceButton}
             />
           </View>
@@ -171,7 +177,11 @@ export default function HomePage() {
         <View style={styles.promoBanner}>
           <Text style={styles.promoTitle}>Lleva tu entrenamiento{"\n"}al siguiente nivel</Text>
           <Text style={styles.promoSubtitle}>Descubre nuevos planes y{"\n"}alcanza tus metas.</Text>
-          <TouchableOpacity style={styles.promoButton} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.promoButton}
+            activeOpacity={0.8}
+            onPress={() => router.push("/(tabs)/explore/planes")}
+          >
             <Text style={styles.promoButtonText}>Explorar planes</Text>
           </TouchableOpacity>
         </View>
@@ -184,19 +194,12 @@ export default function HomePage() {
         icon="play-circle-outline"
         onClose={() => setHelpVisible(false)}
       >
-        {HELP_VIDEO_URL ? (
-          <View style={styles.helpVideoFrame}>
-            <SmartVideoPlayer url={HELP_VIDEO_URL} />
-          </View>
-        ) : (
-          <View style={styles.helpVideoPlaceholder}>
-            <MaterialCommunityIcons name="play-circle-outline" size={46} color={colors.accentDark} />
-            <Text style={styles.helpVideoPlaceholderText}>Video de ayuda pendiente</Text>
-          </View>
-        )}
+        <View style={styles.helpVideoFrame}>
+          <SmartVideoPlayer url={HELP_VIDEO_SOURCE} />
+        </View>
         <Text style={styles.helpText}>Mira el resumen rapido y luego entra a tu rutina, progreso, ficha o facturas desde los accesos.</Text>
       </AppModal>
-    </View>
+    </AppWatermarkBackground>
   );
 }
 
@@ -225,11 +228,6 @@ function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
-}
-
-function formatMoney(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00";
 }
 
 function getTodayLabel() {
@@ -434,16 +432,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  smallLabel: {
-    fontSize: 15,
-    color: colors.textSoft,
-    fontWeight: "700",
+  billingStatus: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
   },
-  lastPayment: {
-    marginTop: 4,
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: "700",
+  billingStatusDanger: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  billingStatusText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.success,
+    fontWeight: "900",
   },
   invoiceButton: {
     minWidth: 142,

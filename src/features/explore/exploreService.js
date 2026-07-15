@@ -43,3 +43,14 @@ export const getEvaluaciones = async () => {
     throw new Error(errorMsg);
   }
 };
+
+export const getPlanes = async () => {
+  try {
+    const response = await apiClient.get("/app/planes");
+    return response.data.data;
+  } catch (error) {
+    const errorMsg = normalizeApiError(error);
+    console.error("Error fetching planes:", errorMsg);
+    throw new Error(errorMsg);
+  }
+};

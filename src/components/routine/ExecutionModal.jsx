@@ -6,6 +6,7 @@ import { colors } from '../../theme/colors';
 import { getBottomSafePadding, getScreenTopPadding } from '../../theme/layout';
 import { modalStyles } from '../../theme/modalStyles';
 import WebSemanticButton from '../common/WebSemanticButton';
+import { calculateTemporaryRmLoads } from '../../features/routine/routineService';
 
 export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
   const insets = useSafeAreaInsets();
@@ -13,6 +14,10 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
   const [obs, setObs] = useState('');
   const [rpe, setRpe] = useState(null);
   const [dolor, setDolor] = useState(null);
+  const [manualRm, setManualRm] = useState('');
+  const [calculatedPlannedSeries, setCalculatedPlannedSeries] = useState(null);
+  const [calculatingRm, setCalculatingRm] = useState(false);
+  const [rmCalculationError, setRmCalculationError] = useState('');
 
   // Inicializar las series basadas en el plan o en la ejecución previa
   useEffect(() => {
@@ -30,8 +35,8 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
             }
             return {
               numero_serie: index + 1,
-              reps: String(exercise.reps || ''),
-              carga: '',
+              reps: String(getPlannedSerie(index, exercise)?.reps || exercise.reps || ''),
+              carga: getSuggestedLoad(index, exercise),
               completado: false
             };
           });
@@ -39,18 +44,24 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
           setObs(exercise.ejecucion.obs || '');
           setRpe(exercise.ejecucion.rpe ? parseFloat(exercise.ejecucion.rpe) : null);
           setDolor(exercise.ejecucion.dolor_nivel != null ? Number(exercise.ejecucion.dolor_nivel) : null);
+          setManualRm(exercise.ejecucion.rm_estimado_temporal ? String(exercise.ejecucion.rm_estimado_temporal) : '');
+          setCalculatedPlannedSeries(null);
+          setRmCalculationError('');
         } else {
           // Generar series vacías basadas en la meta del plan
           const initialSeries = Array.from({ length: seriesCount }).map((_, index) => ({
             numero_serie: index + 1,
-            reps: String(exercise.reps || ''),
-            carga: '',
+            reps: String(getPlannedSerie(index, exercise)?.reps || exercise.reps || ''),
+            carga: getSuggestedLoad(index, exercise),
             completado: false
           }));
           setSeries(initialSeries);
           setObs('');
           setRpe(null);
           setDolor(null);
+          setManualRm('');
+          setCalculatedPlannedSeries(null);
+          setRmCalculationError('');
         }
       }, 0);
 
@@ -59,6 +70,10 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
   }, [visible, exercise]);
 
   if (!exercise) return null;
+
+  const activeExercise = calculatedPlannedSeries
+    ? { ...exercise, plannedSeries: calculatedPlannedSeries }
+    : exercise;
 
   const updateSerie = (index, field, value) => {
     const newSeries = [...series];
@@ -85,13 +100,54 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
       plan_ejercicio_id: exercise.plan_ejercicio_id,
       estado,
       series: series.filter(s => s.completado),
+      rm_estimado_manual: normalizeNumericInput(manualRm),
       rpe_real: rpe,
       dolor_nivel: dolor,
       observaciones: obs
     });
   };
 
+  const handleApplyTemporaryRm = async () => {
+    const rm = normalizeNumericInput(manualRm);
+    if (!rm) {
+      setRmCalculationError('Ingresa un RM estimado válido.');
+      return;
+    }
+
+    if (!exercise.plan_id || !exercise.plan_ejercicio_id) {
+      setRmCalculationError('No se encontró el contexto del plan para calcular.');
+      return;
+    }
+
+    try {
+      setCalculatingRm(true);
+      setRmCalculationError('');
+      const result = await calculateTemporaryRmLoads({
+        plan_id: exercise.plan_id,
+        plan_ejercicio_id: exercise.plan_ejercicio_id,
+        rm_estimado: rm,
+      });
+      const nextPlannedSeries = Array.isArray(result?.series) ? result.series : [];
+      setCalculatedPlannedSeries(nextPlannedSeries);
+      setSeries((currentSeries) => currentSeries.map((serie, index) => {
+        const prescription = nextPlannedSeries[index]?.prescripcion_carga;
+        return {
+          ...serie,
+          carga: prescription?.carga_redondeada
+            ? String(Math.round(Number(prescription.carga_redondeada) * 100) / 100)
+            : serie.carga,
+        };
+      }));
+    } catch (_error) {
+      setRmCalculationError('No se pudo calcular con ese RM estimado.');
+    } finally {
+      setCalculatingRm(false);
+    }
+  };
+
   const RPE_OPTIONS = [5, 6, 7, 8, 9, 10];
+  const hasMissingRm = exercise.plannedSeries?.some((plannedSerie) => isMissingRmPrescription(plannedSerie));
+  const manualRmNumber = normalizeNumericInput(manualRm);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -126,6 +182,56 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
           <View style={modalStyles.yellowAccent} />
 
           <ScrollView style={modalStyles.content}>
+            {hasMissingRm ? (
+              <View style={styles.temporaryRmCard}>
+                <View style={styles.temporaryRmHeader}>
+                  <MaterialCommunityIcons
+                    name={calculatedPlannedSeries ? "check-circle" : "alert-circle-outline"}
+                    size={18}
+                    color={calculatedPlannedSeries ? colors.success : colors.warning}
+                  />
+                  <Text style={styles.temporaryRmTitle}>
+                    No cuenta con RM registrado
+                  </Text>
+                </View>
+                <View style={styles.temporaryRmRow}>
+                  <TextInput
+                    style={[styles.temporaryRmInput, { flex: 1 }]}
+                    keyboardType="numeric"
+                    value={manualRm}
+                    onChangeText={(value) => {
+                      setManualRm(value);
+                      setCalculatedPlannedSeries(null);
+                      setRmCalculationError('');
+                    }}
+                    placeholder="RM estimado"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.temporaryRmApply,
+                      (!manualRmNumber || calculatingRm) && styles.temporaryRmApplyDisabled,
+                    ]}
+                    onPress={handleApplyTemporaryRm}
+                    disabled={!manualRmNumber || calculatingRm}
+                  >
+                    <MaterialCommunityIcons
+                      name={calculatingRm ? "loading" : "check"}
+                      size={22}
+                      color={manualRmNumber && !calculatingRm ? "#10B981" : "#9CA3AF"}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.temporaryRmText}>
+                  {calculatedPlannedSeries
+                    ? "Cargas calculadas por backend. Revisa los pesos de cada serie antes de iniciar."
+                    : "Ingresa un RM estimado y presiona el visto verde para calcular los pesos de la sesión."}
+                </Text>
+                {rmCalculationError ? (
+                  <Text style={styles.temporaryRmError}>{rmCalculationError}</Text>
+                ) : null}
+              </View>
+            ) : null}
             
             {/* Tabla de Series */}
             <View style={styles.tableHeader}>
@@ -148,6 +254,15 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
                     placeholder="kg"
                     placeholderTextColor="#9CA3AF"
                   />
+                  {getPlannedSerie(index, activeExercise)?.prescripcion_carga?.discos_por_lado?.length ? (
+                    <Text style={styles.plateHint} numberOfLines={2}>
+                      {formatBarSetup(getPlannedSerie(index, activeExercise).prescripcion_carga)}
+                    </Text>
+                  ) : isMissingRmPrescription(getPlannedSerie(index, activeExercise)) ? (
+                    <Text style={styles.rmMissingHint} numberOfLines={3}>
+                      RM pendiente. Calcula con un RM estimado antes de ejecutar.
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View style={{ flex: 1, paddingRight: 8 }}>
@@ -259,6 +374,41 @@ export default function ExecutionModal({ visible, onClose, onSave, exercise }) {
   );
 }
 
+function getPlannedSerie(index, exercise) {
+  return Array.isArray(exercise?.plannedSeries) ? exercise.plannedSeries[index] : null;
+}
+
+function getSuggestedLoad(index, exercise) {
+  const load = getPlannedSerie(index, exercise)?.prescripcion_carga?.carga_redondeada;
+  return load ? String(Math.round(Number(load) * 100) / 100) : '';
+}
+
+function formatBarSetup(prescription) {
+  const plates = Array.isArray(prescription?.discos_por_lado) ? prescription.discos_por_lado : [];
+  if (!plates.length) return 'Solo barra';
+
+  return `Por lado: ${plates
+    .map((plate) => `${plate.cantidad}x${formatNumber(plate.peso)}`)
+    .join(' + ')}`;
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '-';
+  return String(Math.round(number * 100) / 100);
+}
+
+function isMissingRmPrescription(plannedSerie) {
+  return String(plannedSerie?.tipo_carga || '').toUpperCase() === 'PORCENTAJE_RM'
+    && plannedSerie?.prescripcion_carga
+    && !plannedSerie.prescripcion_carga.carga_redondeada;
+}
+
+function normalizeNumericInput(value) {
+  const number = Number(String(value || '').replace(',', '.'));
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
+}
+
 const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
@@ -294,6 +444,79 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
     color: '#111827',
+  },
+  plateHint: {
+    marginTop: 4,
+    color: colors.textSoft,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  rmMissingHint: {
+    marginTop: 4,
+    color: colors.warning,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  temporaryRmCard: {
+    gap: 5,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  temporaryRmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  temporaryRmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  temporaryRmTitle: {
+    color: '#111827',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  temporaryRmInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.45)',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '800',
+  },
+  temporaryRmApply: {
+    width: 42,
+    height: 42,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  temporaryRmApplyDisabled: {
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  temporaryRmText: {
+    color: colors.textSoft,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15,
+  },
+  temporaryRmError: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '800',
   },
   inputCompleted: {
     backgroundColor: '#F3F4F6',
