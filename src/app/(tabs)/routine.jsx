@@ -108,9 +108,9 @@ export default function RoutinePage() {
     return (
       <>
 
-        {routine.exercises.map((item) => (
+        {routine.exercises.map((item, index) => (
           <ExerciseCard
-            key={item.id}
+            key={item.plan_ejercicio_id ? `plan-${item.plan_ejercicio_id}` : `exercise-${item.id}-${index}`}
             item={item}
             planId={routine.planId}
             week={selectedWeek || routine.week || 1}

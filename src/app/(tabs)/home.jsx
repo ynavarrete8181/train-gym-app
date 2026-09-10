@@ -1,15 +1,22 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  Image,
+  Dimensions,
+} from "react-native";
 import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppBadge from "../../components/common/AppBadge";
 import AppCard from "../../components/common/AppCard";
-import OutlineButton from "../../components/common/OutlineButton";
-import QuickActionCard from "../../components/common/QuickActionCard";
 import AppModal from "../../components/common/AppModal";
-import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
+import OutlineButton from "../../components/common/OutlineButton";
 import SmartVideoPlayer from "../../components/routine/SmartVideoPlayer";
 import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../features/dashboard/useDashboard";
@@ -17,35 +24,61 @@ import { appStyles } from "../../theme/theme";
 import { colors } from "../../theme/colors";
 import { radius } from "../../theme/radius";
 import { typography } from "../../theme/typography";
+import { shadows } from "../../theme/shadows";
 import { getScreenBottomPadding, getScreenTopPadding } from "../../theme/layout";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
+import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
+
+const { width: windowWidth } = Dimensions.get("window");
 
 const HELP_VIDEO_URL = process.env.EXPO_PUBLIC_HELP_VIDEO_URL;
 const HELP_VIDEO_SOURCE = HELP_VIDEO_URL || require("../../../assets/videos/revive-app-demo.mp4");
+
+const PROMO_IMAGES = [
+  "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000&auto=format&fit=crop", // Supplements/Gym
+  "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1000&auto=format&fit=crop", // Weights
+  "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=1000&auto=format&fit=crop", // Workout
+];
 
 export default function HomePage() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
-  const { data, loading, reload } = useDashboard();
-  const { plan, membresia, deuda, usuario } = data || {};
+  const { data, loading, reload, productos } = useDashboard();
+  const { plan, membresia, deuda, usuario, proxima_reserva, factura } = data || {};
   const displayName = getShortName(usuario || user?.name);
   const [helpVisible, setHelpVisible] = useState(false);
+  const [activePromoIndex, setActivePromoIndex] = useState(0);
 
   const quickActions = useMemo(() => {
     return [
-      { title: "Rutina", icon: "dumbbell", iconColor: colors.purple, bgColor: colors.surface, onPress: () => router.push("/(tabs)/routine") },
-      { title: "Ficha", icon: "account-outline", iconColor: colors.accentDark, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/ficha") },
-      { title: "Evaluación", icon: "clipboard-check-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/evaluaciones") },
-      { title: "RM", icon: "trophy-outline", iconColor: colors.danger, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/rms") },
-      { title: "Progreso", icon: "chart-line-variant", iconColor: colors.success, bgColor: colors.surface, onPress: () => router.push("/(tabs)/progress") },
-      { title: "Factura", icon: "receipt-outline", iconColor: colors.blue, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/facturas") },
-      { title: "Avisos", icon: "bell-outline", iconColor: colors.accent, bgColor: colors.surface, onPress: () => router.push("/(tabs)/explore/notificaciones") },
+      { title: "Rutina", icon: "dumbbell", iconColor: colors.purple, onPress: () => router.push("/(tabs)/routine") },
+      { title: "Reservas", icon: "calendar-check-outline", iconColor: colors.success, onPress: () => router.push("/(tabs)/explore/reservas") },
+      { title: "Ficha", icon: "account-outline", iconColor: colors.accentDark, onPress: () => router.push("/(tabs)/explore/ficha") },
+      { title: "Evaluación", icon: "clipboard-check-outline", iconColor: colors.blue, onPress: () => router.push("/(tabs)/explore/evaluaciones") },
+      { title: "Acceso", icon: "qrcode-scan", iconColor: colors.secondary, onPress: () => router.push("/(tabs)/explore/acceso") },
+      { title: "Factura", icon: "receipt-outline", iconColor: colors.blue, onPress: () => router.push("/(tabs)/explore/facturas") },
     ];
   }, [router]);
 
   useRefreshOnFocus(scrollRef, reload, { skipInitial: true });
+
+  const onScrollPromo = (event) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width;
+    if (!slideSize) return;
+    const index = event.nativeEvent.contentOffset.x / slideSize;
+    setActivePromoIndex(Math.max(0, Math.round(index) || 0));
+  };
+
+  // Validar productos reales para mostrar en el carrusel
+  const promoSlides = useMemo(() => {
+    const valid = Array.isArray(productos) ? productos.filter(p => p.imagen_url) : [];
+    if (valid.length > 0) {
+      return valid.map(p => ({ url: p.imagen_url, title: p.nombre, subtitle: `$${Number(p.precio_venta || 0).toFixed(2)}` }));
+    }
+    return PROMO_IMAGES.map(url => ({ url, title: "REVIVE SPORTS", subtitle: "Lleva tu cuerpo al límite" }));
+  }, [productos]);
 
   if (loading && !data) {
     return (
@@ -58,47 +91,42 @@ export default function HomePage() {
 
   return (
     <AppWatermarkBackground style={appStyles.screen}>
+      {/* ───── Cabecera (Oscura) ───── */}
       <View style={[styles.header, { paddingTop: getScreenTopPadding(insets.top, 10) }]}>
-          <View style={styles.headerContent}>
-            <View style={styles.headerTopRow}>
-              <View style={styles.logoRow}>
-                <View style={styles.logoIconPlaceholder}>
-                  <Text style={styles.logoR}>R</Text>
-                  <View style={styles.logoDot} />
-                </View>
-                <Text style={styles.logoTextWhite}>EVIVE</Text>
-                <Text style={styles.logoTextYellow}>SPORTS</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.logoRow}>
+              <View style={styles.logoIconPlaceholder}>
+                <Text style={styles.logoR}>R</Text>
+                <View style={styles.logoDot} />
               </View>
-
-              <View style={styles.headerActions}>
-                <OutlineButton
-                  label="Ayuda"
-                  icon="play-circle-outline"
-                  onPress={() => setHelpVisible(true)}
-                  style={styles.helpButton}
-                />
-                <TouchableOpacity activeOpacity={0.85} style={styles.settingsButtonWrapper}>
-                  <MaterialCommunityIcons name="cog" size={24} color={colors.surface} />
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.logoTextWhite}>EVIVE</Text>
+              <Text style={styles.logoTextYellow}>SPORTS</Text>
             </View>
 
-            <View style={styles.headerTextBlock}>
-              <Text style={styles.title}>
-                Hola, {displayName} 👋
-              </Text>
+            <View style={styles.headerActions}>
+              <OutlineButton
+                label="Ayuda"
+                icon="play-circle-outline"
+                onPress={() => setHelpVisible(true)}
+                style={styles.helpButton}
+              />
+              <TouchableOpacity activeOpacity={0.85} style={styles.settingsButtonWrapper}>
+                <MaterialCommunityIcons name="cog" size={24} color={colors.surface} />
+              </TouchableOpacity>
             </View>
           </View>
+
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.title}>
+              Hola, {displayName} 👋
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroller}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom, 72) }]}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.accent} />}
-      >
-        {/* ───── Membresía (arriba según mockup) ───── */}
+      {/* ───── Membresía (Flotante) ───── */}
+      <View style={styles.floatingCardContainer}>
         <AppCard style={styles.membershipCard}>
           <View style={styles.membershipTop}>
             <View style={styles.membershipIcon}>
@@ -109,11 +137,11 @@ export default function HomePage() {
               <View style={styles.membershipTitleRow}>
                 <Text style={styles.membershipTitle}>{membresia?.nombre || "Sin membresía"}</Text>
                 <AppBadge tone={membresia ? "success" : "warning"}>
-                  {membresia ? "Activo" : "Pendiente"}
+                  {membresia ? "ACTIVO" : "PENDIENTE"}
                 </AppBadge>
               </View>
               <Text style={styles.membershipDate}>
-                Vence el: <Text style={styles.successText}>{membresia?.fecha_fin ? formatDate(membresia.fecha_fin) : "-"}</Text>
+                Vence el: <Text style={styles.successText}>{membresia?.fecha_fin ? new Date(membresia.fecha_fin).toLocaleDateString() : "-"}</Text>
               </Text>
             </View>
           </View>
@@ -121,30 +149,112 @@ export default function HomePage() {
           <View style={styles.divider} />
 
           <View style={styles.membershipBottom}>
-            <View style={[styles.billingStatus, deuda?.tiene_deuda && styles.billingStatusDanger]}>
-              <MaterialCommunityIcons
-                name={deuda?.tiene_deuda ? "alert-circle-outline" : "check-circle-outline"}
-                size={18}
-                color={deuda?.tiene_deuda ? colors.danger : colors.success}
-              />
-              <Text style={[styles.billingStatusText, deuda?.tiene_deuda && { color: colors.danger }]}>
-                {deuda?.tiene_deuda ? "Pago pendiente" : "Facturación al día"}
+            <View>
+              <Text style={styles.smallLabel}>{deuda?.tiene_deuda ? "Saldo pendiente" : "Último pago"}</Text>
+              <Text style={[styles.lastPayment, deuda?.tiene_deuda && { color: colors.danger }]}>
+                {deuda?.tiene_deuda ? `$${Number(deuda.saldo_total || 0).toFixed(2)}` : factura ? `$${Number(factura.total || 0).toFixed(2)}` : "Sin pagos"}
               </Text>
             </View>
 
             <OutlineButton
               label="Ver mis facturas"
               icon="file-document-outline"
-              onPress={() => router.push("/(tabs)/explore/facturas")}
+              onPress={() => router.push(factura?.id ? { pathname: "/(tabs)/explore/facturas", params: { openId: factura.id } } : "/(tabs)/explore/facturas")}
               style={styles.invoiceButton}
             />
           </View>
         </AppCard>
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scroller}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom, 40) }]}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.accent} />}
+      >
+        {/* ───── Carrusel de Promociones ───── */}
+        <View style={styles.carouselContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onScrollPromo}
+            scrollEventThrottle={16}
+          >
+            {promoSlides.map((slide, idx) => (
+              <View key={idx} style={styles.promoSlide}>
+                <Image source={{ uri: slide.url }} style={styles.promoImage} />
+                <View style={styles.promoOverlay}>
+                  <Text style={styles.promoOverlayTitle}>{slide.title}</Text>
+                  <Text style={styles.promoOverlaySub}>{slide.subtitle}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          {/* Pagination */}
+          <View style={styles.paginationRow}>
+            {promoSlides.map((_, idx) => (
+              <View key={idx} style={[styles.dot, activePromoIndex === idx && styles.dotActive]} />
+            ))}
+          </View>
+        </View>
+
+        {/* ───── Accesos Rápidos Circulares ───── */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.actionsScrollContent}
+          style={styles.actionsScrollView}
+        >
+          {quickActions.map((action, idx) => (
+            <TouchableOpacity key={idx} activeOpacity={0.8} style={styles.circularAction} onPress={action.onPress}>
+              <View style={styles.circularIconWrap}>
+                <MaterialCommunityIcons name={action.icon} size={28} color={colors.navy} />
+              </View>
+              <Text style={styles.circularActionText}>{action.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* ───── Tu Próxima Reserva ───── */}
+        {!!proxima_reserva && (
+          <AppCard style={styles.planCard}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardSectionTitle}>Tu próxima clase</Text>
+              <TouchableOpacity onPress={() => router.push("/(tabs)/explore/reservas")}>
+                <Text style={styles.linkText}>Mis reservas</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.planInner, { backgroundColor: "rgba(16, 185, 129, 0.08)" }]}>
+              <View style={[styles.planIcon, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
+                <MaterialCommunityIcons name="calendar-clock-outline" size={25} color={colors.success} />
+              </View>
+              <View style={styles.planCopy}>
+                <Text style={styles.planMeta}>
+                  {proxima_reserva?.fecha || "-"} · {proxima_reserva?.hora_inicio?.substring(0, 5) || "-"}
+                </Text>
+                <Text style={styles.planTitle} numberOfLines={1}>
+                  {proxima_reserva?.servicio_nombre || "Entrenamiento General"}
+                </Text>
+                <Text style={styles.planMeta} numberOfLines={1}>
+                  {proxima_reserva?.sede_nombre || ""}
+                </Text>
+              </View>
+              <AppBadge tone="success">Confirmada</AppBadge>
+            </View>
+          </AppCard>
+        )}
 
         {/* ───── Tu plan de hoy ───── */}
-        {plan && (
+        {!!plan && (
           <AppCard style={styles.planCard}>
-            <SectionHeader title="Tu plan de hoy" action="Ver rutina" onPress={() => router.push("/(tabs)/routine")} />
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardSectionTitle}>Tu plan de hoy</Text>
+              <TouchableOpacity onPress={() => router.push("/(tabs)/routine")}>
+                <Text style={styles.linkText}>Ver rutina</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.planInner}>
               <View style={styles.planIcon}>
                 <MaterialCommunityIcons name="calendar-month-outline" size={25} color="#6D4AFF" />
@@ -170,26 +280,6 @@ export default function HomePage() {
           </AppCard>
         )}
 
-        {/* ───── Accesos rápidos ───── */}
-        <Text style={styles.sectionTitle}>Accesos rápidos</Text>
-        <View style={styles.quickGrid}>
-          {quickActions.map((action) => (
-            <QuickActionCard key={action.title} {...action} style={styles.quickAction} />
-          ))}
-        </View>
-
-        {/* ───── Banner Promocional ───── */}
-        <View style={styles.promoBanner}>
-          <Text style={styles.promoTitle}>Lleva tu entrenamiento{"\n"}al siguiente nivel</Text>
-          <Text style={styles.promoSubtitle}>Descubre nuevos planes y{"\n"}alcanza tus metas.</Text>
-          <TouchableOpacity
-            style={styles.promoButton}
-            activeOpacity={0.8}
-            onPress={() => router.push("/(tabs)/explore/planes")}
-          >
-            <Text style={styles.promoButtonText}>Explorar planes</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
 
       <AppModal
@@ -210,29 +300,14 @@ export default function HomePage() {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function SectionHeader({ title, action, onPress }) {
-  return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <OutlineButton
-        label={action}
-        onPress={onPress}
-        style={styles.sectionActionBtn}
-      />
-    </View>
-  );
-}
-
 function getShortName(fullName) {
   if (!fullName) return "Usuario";
+  if (typeof fullName !== "string") {
+    if (fullName.nombres) return `${fullName.nombres} ${fullName.apellidos || ''}`.trim();
+    return "Usuario";
+  }
   const parts = fullName.trim().split(" ");
   return parts.length > 1 ? `${parts[0]} ${parts[1]}` : fullName;
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
 }
 
 function getTodayLabel() {
@@ -241,6 +316,8 @@ function getTodayLabel() {
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
+
+const HEADER_HEIGHT = 160;
 
 const styles = StyleSheet.create({
   center: {
@@ -253,234 +330,278 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   header: {
-    backgroundColor: colors.navy,
-    paddingHorizontal: 24,
-    paddingBottom: 80,
-    borderBottomLeftRadius: radius.xxl,
-    borderBottomRightRadius: radius.xxl,
+    backgroundColor: colors.primaryDark,
+    paddingHorizontal: 20,
+    height: HEADER_HEIGHT,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+    justifyContent: 'center',
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  helpButton: {
-    height: 36,
-    minWidth: 108,
-    paddingHorizontal: 10,
-    backgroundColor: colors.white,
-  },
-  scroller: {
-    position: "relative",
-    zIndex: 10,
-    elevation: 10,
-    marginTop: -46,
+  headerContent: {
+    paddingBottom: 24,
   },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 24,
   },
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
   },
   logoIconPlaceholder: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginRight: 4,
+    width: 32,
+    height: 32,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   logoR: {
-    color: colors.surface,
+    fontSize: 20,
     fontWeight: "900",
-    fontSize: 24,
+    color: colors.primaryDark,
     fontStyle: "italic",
+    marginLeft: -2,
   },
   logoDot: {
+    position: "absolute",
+    bottom: 6,
+    right: 4,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.accent,
-    marginLeft: 2,
   },
   logoTextWhite: {
     color: colors.surface,
     fontWeight: "800",
     fontSize: 18,
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   logoTextYellow: {
     color: colors.accent,
     fontWeight: "800",
-    fontSize: 10,
-    position: "absolute",
-    bottom: -10,
-    right: 0,
+    fontSize: 18,
     letterSpacing: 1,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  helpButton: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
   settingsButtonWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.blue,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  headerContent: {
-    minHeight: 90,
-    paddingTop: 10,
   },
   headerTextBlock: {
-    gap: 6,
-  },
-  welcome: {
-    color: colors.surface,
-    fontSize: 14,
-    fontWeight: "600",
-    opacity: 0.9,
+    marginTop: 24,
   },
   title: {
-    ...typography.screenTitle,
-    fontSize: 22,
-    lineHeight: 28,
-  },
-  subtitle: {
-    ...typography.screenSubtitle,
-    fontSize: 15,
-    opacity: 0.8,
-  },
-  settingsButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
-    paddingHorizontal: 18,
-    gap: 22,
-  },
-  helpVideoFrame: {
-    borderRadius: 14,
-    overflow: "hidden",
-    backgroundColor: colors.text,
-  },
-  helpVideoPlaceholder: {
-    minHeight: 180,
-    borderRadius: 14,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  helpVideoPlaceholderText: {
-    color: colors.text,
-    fontSize: 15,
+    fontSize: 28,
     fontWeight: "900",
+    color: colors.surface,
   },
-  helpText: {
-    color: colors.textSoft,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
+  floatingCardContainer: {
+    position: "absolute",
+    top: HEADER_HEIGHT - 60,
+    left: 20,
+    right: 20,
+    zIndex: 100,
+    ...shadows.floating,
   },
   membershipCard: {
-    gap: 18,
+    padding: 18,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
   },
   membershipTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 16,
   },
   membershipIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: radius.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
   membershipCopy: {
     flex: 1,
-    gap: 5,
   },
   membershipTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 4,
   },
   membershipTitle: {
-    ...typography.cardTitle,
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
+    flex: 1,
+    marginRight: 8,
   },
   membershipDate: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textSoft,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   successText: {
     color: colors.success,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
+    marginVertical: 16,
   },
   membershipBottom: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
   },
-  billingStatus: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
-  },
-  billingStatusDanger: {
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-  },
-  billingStatusText: {
-    flex: 1,
+  smallLabel: {
     fontSize: 13,
-    color: colors.success,
+    color: colors.textSoft,
+    fontWeight: "700",
+  },
+  lastPayment: {
+    marginTop: 2,
+  },
+  scroller: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  content: {
+    paddingTop: 80, // Space for floating card
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    gap: 24,
+  },
+  carouselContainer: {
+    height: 180,
+    borderRadius: radius.xl,
+    overflow: "hidden",
+    position: "relative",
+  },
+  promoSlide: {
+    width: windowWidth - 40,
+    height: 180,
+    position: "relative",
+  },
+  promoImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+    borderRadius: radius.xl,
+  },
+  promoOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingTop: 32, // For gradient feeling
+    backgroundColor: "rgba(0,0,0,0.3)", // In a real app we'd use LinearGradient
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
+  },
+  promoOverlayTitle: {
+    color: colors.surface,
+    fontSize: 22,
     fontWeight: "900",
   },
-  invoiceButton: {
-    minWidth: 142,
-    height: 46,
-    paddingHorizontal: 12,
+  promoOverlaySub: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 14,
+    fontWeight: "600",
   },
-  sectionHeader: {
+  paginationRow: {
+    position: "absolute",
+    bottom: 10,
+    left: 0,
+    right: 0,
     flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.5)",
+  },
+  dotActive: {
+    backgroundColor: colors.surface,
+    width: 12,
+  },
+  actionsScrollView: {
+    marginHorizontal: -20, // Let it bleed to edges
+  },
+  actionsScrollContent: {
+    paddingHorizontal: 20,
+    gap: 16,
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
   },
-  sectionTitle: {
-    ...typography.sectionTitle,
-    fontSize: 15,
+  circularAction: {
+    alignItems: "center",
+    gap: 8,
+    width: 72,
   },
-  sectionActionBtn: {
-    height: 32,
-    minWidth: 100,
-    paddingHorizontal: 12,
+  circularIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.soft,
+  },
+  circularActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "center",
   },
   planCard: {
     gap: 16,
   },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardSectionTitle: {
+    ...typography.sectionTitle,
+    fontSize: 16,
+  },
+  linkText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
   planInner: {
-    minHeight: 122,
+    minHeight: 100,
     borderRadius: radius.lg,
     backgroundColor: "#F5F1FF",
     flexDirection: "row",
@@ -501,20 +622,20 @@ const styles = StyleSheet.create({
   },
   planMeta: {
     color: colors.textSoft,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   planTitle: {
     color: colors.text,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   progressTrack: {
-    height: 7,
+    height: 6,
     borderRadius: 999,
-    backgroundColor: colors.surface,
-    marginVertical: 12,
+    backgroundColor: "rgba(0,0,0,0.06)",
+    marginVertical: 10,
     overflow: "hidden",
   },
   progressFill: {
@@ -524,52 +645,19 @@ const styles = StyleSheet.create({
   percent: {
     alignSelf: "flex-end",
     color: colors.textSoft,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "900",
   },
-  quickGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 14,
-  },
-  quickAction: {
-    width: "31.5%", // 3 columns
-  },
-  promoBanner: {
-    marginTop: 10,
-    backgroundColor: "#0F172A", // Dark navy background
-    borderRadius: radius.xl,
-    padding: 24,
+  helpVideoFrame: {
+    borderRadius: 14,
     overflow: "hidden",
-    position: "relative",
+    backgroundColor: colors.text,
   },
-  promoTitle: {
-    color: colors.surface,
-    fontSize: 20,
-    fontWeight: "900",
-    lineHeight: 24,
-  },
-  promoSubtitle: {
+  helpText: {
     color: colors.textSoft,
     fontSize: 14,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  promoButton: {
-    backgroundColor: colors.accent,
-    alignSelf: "flex-start",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-  },
-  promoButtonText: {
-    color: "#000",
-    fontWeight: "900",
-    fontSize: 15,
-  },
-  metricRow: {
-    flexDirection: "row",
-    gap: 8,
+    fontWeight: "700",
+    lineHeight: 20,
+    marginTop: 10,
   },
 });

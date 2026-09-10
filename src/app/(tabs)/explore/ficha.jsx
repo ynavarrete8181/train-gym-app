@@ -41,9 +41,9 @@ export default function FichaPage() {
 
     return list
       .slice()
-      .sort((a, b) => new Date(b.fecha_ficha || b.fecha_actualizacion || 0) - new Date(a.fecha_ficha || a.fecha_actualizacion || 0))
       .map((item, index, sorted) => ({
         ...item,
+        peso_referencia_kg: sorted[index + 1]?.peso_kg ?? item.peso_kg,
         tendencia: buildTrend(item, sorted[index + 1]),
       }));
   }, [evaluaciones, ficha]);
@@ -74,11 +74,6 @@ export default function FichaPage() {
       >
         {fichas.length > 0 ? (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Historial de fichas</Text>
-              <Text style={styles.historySubtitle}>Toca una ficha para ver el detalle completo.</Text>
-            </View>
-
             {fichas.map((item, index) => (
               <FichaHistoryCard
                 key={`${item.id || item.fecha_ficha || "ficha"}-${index}`}
@@ -120,11 +115,11 @@ function FichaHistoryCard({ ficha, active, onPress, onDetail, onFormula }) {
     <Pressable onPress={onPress}>
       <AppCard style={[styles.historyCard, { borderLeftColor: estadoStyle.color }, active && styles.historyCardActive]}>
         <View style={styles.historyCardBody}>
-          <DateTile value={ficha.fecha_ficha || ficha.fecha_actualizacion} />
+          <DateTile ficha={ficha} />
           <View style={styles.historyInfo}>
             <View style={styles.historyTop}>
               <View style={styles.historyDateBox}>
-                <Text style={styles.historyDate}>Revision {formatDate(ficha.fecha_ficha || ficha.fecha_actualizacion)}</Text>
+                <Text style={styles.historyDate}>Revision {formatFichaDate(ficha)}</Text>
               </View>
               <AppBadge tone={estadoStyle.badgeTone}>{estado.label}</AppBadge>
             </View>
@@ -166,18 +161,12 @@ function FichaHistoryCard({ ficha, active, onPress, onDetail, onFormula }) {
   );
 }
 
-function DateTile({ value }) {
-  const date = value ? new Date(value) : null;
-  const valid = date && !Number.isNaN(date.getTime());
-  const day = valid ? String(date.getDate()).padStart(2, "0") : "--";
-  const month = valid ? date.toLocaleDateString(undefined, { month: "short" }).replace(".", "") : "---";
-  const year = valid ? date.getFullYear() : "----";
-
+function DateTile({ ficha }) {
   return (
     <View style={styles.dateTile}>
-      <Text style={styles.dateTileDay}>{day}</Text>
-      <Text style={styles.dateTileMonth}>{month}</Text>
-      <Text style={styles.dateTileYear}>{year}</Text>
+      <Text style={styles.dateTileDay}>{ficha?.fecha_ficha_dia || "--"}</Text>
+      <Text style={styles.dateTileMonth}>{ficha?.fecha_ficha_mes || "---"}</Text>
+      <Text style={styles.dateTileYear}>{ficha?.fecha_ficha_anio || "----"}</Text>
     </View>
   );
 }
@@ -193,7 +182,7 @@ function FichaDetailModal({ ficha, visible, onClose, onFormula }) {
     <AppModal
       visible={visible}
       title="Detalle de ficha"
-      subtitle={formatDate(ficha.fecha_ficha || ficha.fecha_actualizacion)}
+      subtitle={formatFichaDate(ficha)}
       icon="clipboard-text-outline"
       onClose={onClose}
       footer={
@@ -206,11 +195,12 @@ function FichaDetailModal({ ficha, visible, onClose, onFormula }) {
       }
     >
       <RotatingBodyPhoto ficha={ficha} imageUrl={bodyPhotoUrl} estadoStyle={estadoStyle} estadoLabel={estado.label} />
+      <GoalJourneyCard ficha={ficha} />
       <MetricGrid ficha={ficha} />
       <InfoRow icon="target" label="Objetivo" value={ficha.objetivo || "No especificado"} />
       <InfoRow icon="lightning-bolt" label="Actividad" value={ficha.actividad_fisica || "No especificado"} />
       <InfoRow icon="medical-bag" label="Observaciones" value={ficha.observaciones || "Ninguna observacion registrada."} />
-      <InfoRow icon="calendar-clock" label="Proxima revision" value={formatDate(ficha.fecha_revision_sugerida)} />
+      <InfoRow icon="calendar-clock" label="Proxima revision" value={ficha.fecha_revision_sugerida_display || ficha.fecha_revision_sugerida || "-"} />
     </AppModal>
   );
 }
@@ -277,6 +267,44 @@ function MetricGrid({ ficha }) {
       <MetricPill label="Cintura/Altura" value={formatPlain(ficha.cintura_altura)} />
       <MetricPill label="Grasa" value={formatUnit(ficha.grasa_corporal_pct, "%")} />
       <MetricPill label="Masa magra" value={formatUnit(ficha.masa_magra_kg, "kg")} />
+      <MetricPill label="Meta inicial" value={formatGoalWeight(ficha)} />
+    </View>
+  );
+}
+
+function GoalJourneyCard({ ficha }) {
+  const currentWeight = toNumber(ficha?.peso_kg);
+  const referenceWeight = toNumber(ficha?.peso_referencia_kg);
+  const targetWeight = toNumber(ficha?.peso_saludable_max_kg);
+  const remaining = toNumber(ficha?.peso_a_bajar_kg);
+
+  if (!currentWeight || !targetWeight) return null;
+
+  const reached = !remaining || remaining <= 0;
+  const totalJourney = referenceWeight && referenceWeight > targetWeight ? referenceWeight - targetWeight : currentWeight - targetWeight;
+  const advanced = referenceWeight && referenceWeight > currentWeight ? referenceWeight - currentWeight : 0;
+  const progress = reached ? 1 : Math.max(0.08, Math.min(0.92, totalJourney > 0 ? advanced / totalJourney : 0.08));
+  const message = reached ? "Mantener" : advanced > 0 ? `-${advanced.toFixed(1)} kg` : `Faltan ${remaining.toFixed(1)} kg`;
+
+  return (
+    <View style={styles.goalCard}>
+      <View style={styles.goalHeader}>
+        <View style={styles.goalIcon}>
+          <MaterialCommunityIcons name={reached ? "check-circle-outline" : "flag-checkered"} size={20} color={reached ? colors.success : colors.primaryStrong} />
+        </View>
+        <View style={styles.goalCopy}>
+          <Text style={styles.goalTitle}>Meta</Text>
+          <View style={styles.goalNumbers}>
+            <Text style={styles.goalNumber}>{currentWeight.toFixed(1)} kg</Text>
+            <MaterialCommunityIcons name="arrow-right" size={14} color={colors.textSoft} />
+            <Text style={styles.goalTarget}>{targetWeight.toFixed(1)} kg</Text>
+            <Text style={[styles.goalMessage, reached && styles.goalMessageSuccess]}>{message}</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.goalTrack}>
+        <View style={[styles.goalProgress, { width: `${progress * 100}%`, backgroundColor: reached ? colors.success : colors.primary }]} />
+      </View>
     </View>
   );
 }
@@ -388,11 +416,8 @@ function getEstadoStyle(tone) {
   return { color: colors.text, background: "rgba(15, 23, 42, 0.06)", border: "rgba(15, 23, 42, 0.16)", iconBg: "rgba(15, 23, 42, 0.08)", badgeTone: "neutral" };
 }
 
-function formatDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString();
+function formatFichaDate(ficha) {
+  return ficha?.fecha_ficha_display || ficha?.fecha_ficha || "-";
 }
 
 function formatPlain(value) {
@@ -403,6 +428,17 @@ function formatPlain(value) {
 function formatUnit(value, unit) {
   if (value === null || value === undefined || value === "") return "-";
   return `${value}${unit === "%" ? "" : " "}${unit}`;
+}
+
+function formatGoalWeight(ficha) {
+  const target = toNumber(ficha?.peso_saludable_max_kg);
+  if (!target) return "-";
+  return `${target.toFixed(1)} kg`;
+}
+
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 const styles = StyleSheet.create({
@@ -617,21 +653,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: colors.text,
   },
-  sectionHeader: {
-    paddingHorizontal: 4,
-    gap: 3,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  historySubtitle: {
-    color: colors.textSoft,
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 2,
-  },
   historyCard: {
     gap: 10,
     padding: 14,
@@ -741,6 +762,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     fontWeight: "900",
+  },
+  goalCard: {
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(242, 177, 0, 0.34)",
+    borderRadius: 12,
+    backgroundColor: colors.primaryPale,
+    padding: 10,
+  },
+  goalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  goalIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goalCopy: {
+    flex: 1,
+  },
+  goalTitle: {
+    fontSize: 11,
+    color: colors.text,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  goalMessage: {
+    marginLeft: "auto",
+    fontSize: 11,
+    color: colors.primaryStrong,
+    fontWeight: "900",
+  },
+  goalMessageSuccess: {
+    color: colors.success,
+  },
+  goalNumbers: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginTop: 2,
+  },
+  goalNumber: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: "900",
+  },
+  goalTarget: {
+    fontSize: 14,
+    color: colors.primaryStrong,
+    fontWeight: "900",
+  },
+  goalTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(15, 23, 42, 0.10)",
+    overflow: "hidden",
+  },
+  goalProgress: {
+    height: "100%",
+    borderRadius: 999,
   },
   historyBottom: {
     flexDirection: "row",

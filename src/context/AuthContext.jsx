@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import apiClient, { normalizeApiError } from "../api/apiClient";
 import { clearSession, getStoredSession, saveSession } from "../api/authStorage";
+import { registerPushDevice } from "../features/notifications/pushNotificationService";
 
 const AuthContext = createContext(null);
 
@@ -8,6 +9,12 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [booting, setBooting] = useState(true);
+
+  const persistSession = useCallback(async (nextToken, nextUser) => {
+    await saveSession({ token: nextToken, user: nextUser });
+    setToken(nextToken);
+    setUser(nextUser);
+  }, []);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -24,9 +31,8 @@ export function AuthProvider({ children }) {
         try {
           const { data: profile } = await apiClient.get("/auth/me");
           const normalizedUser = profile?.user || profile;
-          await saveSession({ token: stored.accessToken, user: normalizedUser });
-          setUser(normalizedUser);
-        } catch (error) {
+          await persistSession(stored.accessToken, normalizedUser);
+        } catch (_error) {
           await clearSession();
           setUser(null);
           setToken(null);
@@ -37,9 +43,19 @@ export function AuthProvider({ children }) {
     };
 
     bootstrap();
-  }, []);
+  }, [persistSession]);
 
-  const signIn = async (credentials) => {
+  useEffect(() => {
+    if (!token || !user) {
+      return;
+    }
+
+    registerPushDevice().catch(() => {
+      // El registro push no debe bloquear el uso normal de la app.
+    });
+  }, [token, user]);
+
+  const signIn = useCallback(async (credentials) => {
     try {
       const documento = String(credentials?.cedula || "").trim();
       const { data } = await apiClient.post("/auth/login", {
@@ -53,28 +69,48 @@ export function AuthProvider({ children }) {
         throw new Error("El backend no devolvió una sesión válida.");
       }
 
-      await saveSession({ token: nextToken, user: nextUser });
-      setToken(nextToken);
-      setUser(nextUser);
+      await persistSession(nextToken, nextUser);
       return nextUser;
     } catch (error) {
       throw new Error(normalizeApiError(error, "No se pudo iniciar sesión."));
     }
-  };
+  }, [persistSession]);
 
-  const signOut = async () => {
+  const refreshUser = useCallback(async () => {
+    if (!token) {
+      return null;
+    }
+
+    const { data: profile } = await apiClient.get("/auth/me");
+    const nextUser = profile?.user || profile;
+    await persistSession(token, nextUser);
+    return nextUser;
+  }, [persistSession, token]);
+
+  const updateUser = useCallback(
+    async (nextUser) => {
+      if (!token || !nextUser) {
+        return;
+      }
+
+      await persistSession(token, nextUser);
+    },
+    [persistSession, token]
+  );
+
+  const signOut = useCallback(async () => {
     try {
       if (token) {
         await apiClient.post("/auth/logout");
       }
-    } catch (error) {
+    } catch (_error) {
       // Si el token ya expiró o el backend no responde, igual cerramos la sesión local.
     }
 
     await clearSession();
     setToken(null);
     setUser(null);
-  };
+  }, [token]);
 
   const value = useMemo(
     () => ({
@@ -84,8 +120,10 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token),
       signIn,
       signOut,
+      refreshUser,
+      updateUser,
     }),
-    [user, token, booting]
+    [user, token, booting, signIn, signOut, refreshUser, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

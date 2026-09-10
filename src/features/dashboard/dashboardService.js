@@ -23,3 +23,16 @@ export const getFichaResumen = async () => {
     return null;
   }
 };
+
+/**
+ * Obtiene los productos disponibles en inventario para mostrar en la tienda/promo.
+ */
+export const getProductosTienda = async () => {
+  try {
+    const { data } = await apiClient.get('/inventario/productos');
+    return Array.isArray(data) ? data : data.data || [];
+  } catch (error) {
+    console.error("Error obteniendo productos:", error);
+    return [];
+  }
+};

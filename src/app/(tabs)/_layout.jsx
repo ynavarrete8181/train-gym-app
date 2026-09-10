@@ -7,7 +7,7 @@ import { colors } from "../../theme/colors";
 import { getTabBarHeight, TAB_BAR_MIN_BOTTOM } from "../../theme/layout";
 
 export default function TabsLayout() {
-  const { booting, isAuthenticated } = useAuth();
+  const { booting, isAuthenticated, user } = useAuth();
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, TAB_BAR_MIN_BOTTOM);
 
@@ -17,6 +17,10 @@ export default function TabsLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
+  }
+
+  if (user?.requiere_cambio_password) {
+    return <Redirect href="/cambiar-password-temporal" />;
   }
 
   return (
