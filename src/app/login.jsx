@@ -24,11 +24,7 @@ import { getBottomSafePadding, getScreenTopPadding } from "../theme/layout";
 import CustomAlert from "../components/common/CustomAlert";
 
 const schema = z.object({
-  cedula: z
-    .string()
-    .trim()
-    .min(8, "Ingresa una cédula válida.")
-    .regex(/^[0-9]+$/, "La cédula solo debe contener números."),
+  email: z.string().trim().email("Ingresa un correo electrónico válido."),
   password: z.string().min(4, "La contraseña debe tener al menos 4 caracteres."),
 });
 
@@ -40,7 +36,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const scrollRef = useRef(null);
-  const cedulaRef = useRef(null);
+  const emailRef = useRef(null);
   const passwordRef = useRef(null);
   
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'error' });
@@ -56,7 +52,7 @@ export default function LoginPage() {
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      cedula: "",
+      email: "",
       password: "",
     },
   });
@@ -74,7 +70,7 @@ export default function LoginPage() {
       }
     },
     () => {
-      const firstError = errors.cedula?.message || errors.password?.message;
+      const firstError = errors.email?.message || errors.password?.message;
       if (firstError) {
         showAlert("Datos incompletos", firstError, "warning");
       }
@@ -199,17 +195,18 @@ export default function LoginPage() {
 
               <Controller
                 control={control}
-                name="cedula"
+                name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    ref={cedulaRef}
+                    ref={emailRef}
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}
                     onFocus={() => scrollToField(height * 0.12)}
-                    keyboardType="numeric"
+                    keyboardType="email-address"
                     autoCorrect={false}
                     autoCapitalize="none"
+                    textContentType="emailAddress"
                     placeholder=""
                     selectionColor={colors.gold}
                     cursorColor={colors.gold}
