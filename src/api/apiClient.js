@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { STORAGE_KEYS } from "../utils/storageKeys";
 
-const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8002").trim();
+const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "https://revivesportapi.up.railway.app").trim();
 const rawBaseUrl =
   Platform.OS === "android"
     ? configuredBaseUrl.replace("localhost", "10.0.2.2").replace("127.0.0.1", "10.0.2.2")
@@ -30,8 +30,9 @@ apiClient.interceptors.request.use(async (config) => {
 });
 
 export const normalizeApiError = (error, fallbackMessage = "Ocurrió un error al procesar la solicitud.") => {
-  if (error?.response?.data?.message) {
-    return error.response.data.message;
+  const serverMessage = error?.response?.data?.mensaje || error?.response?.data?.message;
+  if (serverMessage) {
+    return serverMessage;
   }
 
   if (error?.code === "ECONNABORTED") {
