@@ -29,8 +29,9 @@ export function AuthProvider({ children }) {
         setToken(stored.accessToken);
 
         try {
-          const { data: profile } = await apiClient.get("/auth/me");
-          const normalizedUser = profile?.user || profile;
+          const { data: profile } = await apiClient.get("/base/auth/me");
+          const normalizedUser = profile?.datos?.usuario || profile?.user || profile?.usuario || null;
+          if (!normalizedUser) throw new Error("La API no devolvió el usuario.");
           await persistSession(stored.accessToken, normalizedUser);
         } catch (_error) {
           await clearSession();
@@ -57,13 +58,13 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (credentials) => {
     try {
-      const documento = String(credentials?.cedula || "").trim();
-      const { data } = await apiClient.post("/auth/login", {
-        cedula: documento,
+      const email = String(credentials?.email || "").trim().toLowerCase();
+      const { data } = await apiClient.post("/base/auth/login", {
+        email,
         password: credentials?.password || "",
       });
-      const nextToken = data?.token || data?.access_token || null;
-      const nextUser = data?.user || null;
+      const nextToken = data?.datos?.token || data?.token || data?.access_token || null;
+      const nextUser = data?.datos?.usuario || data?.user || null;
 
       if (!nextToken || !nextUser) {
         throw new Error("El backend no devolvió una sesión válida.");
@@ -81,8 +82,9 @@ export function AuthProvider({ children }) {
       return null;
     }
 
-    const { data: profile } = await apiClient.get("/auth/me");
-    const nextUser = profile?.user || profile;
+    const { data: profile } = await apiClient.get("/base/auth/me");
+    const nextUser = profile?.datos?.usuario || profile?.user || profile?.usuario || null;
+    if (!nextUser) throw new Error("La API no devolvió el usuario.");
     await persistSession(token, nextUser);
     return nextUser;
   }, [persistSession, token]);
@@ -101,7 +103,7 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async () => {
     try {
       if (token) {
-        await apiClient.post("/auth/logout");
+        await apiClient.post("/base/auth/logout");
       }
     } catch (_error) {
       // Si el token ya expiró o el backend no responde, igual cerramos la sesión local.
