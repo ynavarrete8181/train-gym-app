@@ -24,7 +24,7 @@ export default function MembershipSummary({ membership, onPress }) {
       </View>
       <View style={styles.rule} />
       <Pressable onPress={onPress} style={styles.link} accessibilityRole="button">
-        <Text style={styles.linkText}>Ver planes y membresías</Text>
+        <Text style={styles.linkText}>Ver mi asignación</Text>
         <MaterialCommunityIcons name="arrow-right" size={19} color={colors.accentDark} />
       </Pressable>
     </AppCard>
