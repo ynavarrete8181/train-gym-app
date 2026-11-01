@@ -3,7 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { STORAGE_KEYS } from "../utils/storageKeys";
 
-const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "https://revivesportapi.up.railway.app").trim();
+// En desarrollo no se debe conectar silenciosamente al backend de producción.
+const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8002").trim();
 const rawBaseUrl =
   Platform.OS === "android"
     ? configuredBaseUrl.replace("localhost", "10.0.2.2").replace("127.0.0.1", "10.0.2.2")
@@ -72,6 +73,9 @@ export const normalizeApiError = (error, fallbackMessage = "Ocurrió un error al
   }
 
   if (status === 422) {
+    if (payload?.errors?.email && error?.config?.url?.includes("/base/auth/login")) {
+      return "La API conectada utiliza una versión anterior del login (solicita correo). Configura EXPO_PUBLIC_API_URL con el backend de desarrollo actualizado.";
+    }
     return readableValidationError(payload?.errors)
       || "Revisa la cédula o correo electrónico y la contraseña ingresados.";
   }
