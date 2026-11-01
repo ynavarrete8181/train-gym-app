@@ -1,42 +1,31 @@
 import { useState, useEffect, useCallback } from "react";
-import { getDashboardSummary, getFichaResumen, getProductosTienda } from "./dashboardService";
+import { getDashboardSummary } from "./dashboardService";
 
+// El Home solo consulta su resumen personal.
+// No llamar a /inventario/productos: es una ruta administrativa y la app no posee un catálogo público todavía.
 export const useDashboard = () => {
   const [data, setData] = useState(null);
-  const [ficha, setFicha] = useState(null);
-  const [productos, setProductos] = useState([]);
+  const [productos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Cargar dashboard, ficha y productos en paralelo
-      const [dashResult, fichaResult, productosResult] = await Promise.all([
-        getDashboardSummary(),
-        getFichaResumen(),
-        getProductosTienda(),
-      ]);
-      setData(dashResult);
-      setFicha(fichaResult);
-      setProductos(productosResult || []);
+      const summary = await getDashboardSummary();
+      setData(summary || {});
+    } catch (_error) {
+      setError("No se pudo actualizar tu resumen.");
+      setData((current) => current || {});
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      loadDashboard();
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
+    loadDashboard();
   }, [loadDashboard]);
 
-  return {
-    data,
-    ficha,
-    productos,
-    loading,
-    reload: loadDashboard,
-  };
+  return { data, productos, ficha: null, loading, error, reload: loadDashboard };
 };
