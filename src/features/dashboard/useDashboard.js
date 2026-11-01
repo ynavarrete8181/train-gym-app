@@ -21,7 +21,7 @@ export const useDashboard = () => {
       } catch (catalogError) {
         // La tienda no debe bloquear el Home ni generar overlays rojos de Expo.
         setProductos([]);
-        if (__DEV__) console.warn("Catálogo móvil no disponible:", catalogError?.response?.status || catalogError?.message);
+        // El estado vacío del catálogo informa al usuario sin interrumpir la navegación.
       }
     } catch (_error) {
       setError("No se pudo actualizar tu resumen.");
