@@ -104,7 +104,7 @@ export const normalizeAssetUrl = (url) => {
   try {
     const parsed = new URL(raw);
     if (
-      parsed.pathname.startsWith("/uploads/") &&
+      (parsed.pathname.startsWith("/uploads/") || parsed.pathname.startsWith("/storage/")) &&
       ["localhost", "127.0.0.1"].includes(parsed.hostname)
     ) {
       return `${API_BASE_ORIGIN}${parsed.pathname}`;
