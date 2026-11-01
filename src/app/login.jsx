@@ -37,6 +37,7 @@ export default function LoginPage() {
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const scrollRef = useRef(null);
   const identificadorRef = useRef(null);
@@ -51,7 +52,6 @@ export default function LoginPage() {
   const {
     control,
     handleSubmit,
-    formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -62,21 +62,22 @@ export default function LoginPage() {
 
   const onSubmit = handleSubmit(
     async (values) => {
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      setSubmitting(true);
       try {
-        setSubmitting(true);
         await signIn(values);
         router.replace("/(tabs)/home");
       } catch (error) {
-        showAlert("Error", error.message || "No se pudo iniciar sesión.", "error");
+        showAlert("No se pudo iniciar sesión", error?.message || "Verifica tus datos e intenta nuevamente.", "error");
       } finally {
+        submittingRef.current = false;
         setSubmitting(false);
       }
     },
-    () => {
-      const firstError = errors.identificador?.message || errors.password?.message;
-      if (firstError) {
-        showAlert("Datos incompletos", firstError, "warning");
-      }
+    (validationErrors) => {
+      const firstError = validationErrors.identificador?.message || validationErrors.password?.message;
+      showAlert("Revisa tus datos", firstError || "Completa los campos obligatorios.", "warning");
     }
   );
 
