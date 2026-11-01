@@ -24,7 +24,10 @@ import { getBottomSafePadding, getScreenTopPadding } from "../theme/layout";
 import CustomAlert from "../components/common/CustomAlert";
 
 const schema = z.object({
-  email: z.string().trim().email("Ingresa un correo electrónico válido."),
+  identificador: z.string().trim().refine(
+    (valor) => /^[0-9]{8,20}$/.test(valor) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor),
+    "Ingresa una cédula o un correo electrónico válido."
+  ),
   password: z.string().min(4, "La contraseña debe tener al menos 4 caracteres."),
 });
 
@@ -36,7 +39,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const scrollRef = useRef(null);
-  const emailRef = useRef(null);
+  const identificadorRef = useRef(null);
   const passwordRef = useRef(null);
   
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'error' });
@@ -52,7 +55,7 @@ export default function LoginPage() {
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: "",
+      identificador: "",
       password: "",
     },
   });
@@ -70,7 +73,7 @@ export default function LoginPage() {
       }
     },
     () => {
-      const firstError = errors.email?.message || errors.password?.message;
+      const firstError = errors.identificador?.message || errors.password?.message;
       if (firstError) {
         showAlert("Datos incompletos", firstError, "warning");
       }
@@ -195,10 +198,10 @@ export default function LoginPage() {
 
               <Controller
                 control={control}
-                name="email"
+                name="identificador"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    ref={emailRef}
+                    ref={identificadorRef}
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}
@@ -207,7 +210,7 @@ export default function LoginPage() {
                     autoCorrect={false}
                     autoCapitalize="none"
                     textContentType="emailAddress"
-                    placeholder=""
+                    placeholder="Cédula o correo"
                     selectionColor={colors.gold}
                     cursorColor={colors.gold}
                     style={{
