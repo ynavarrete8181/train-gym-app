@@ -48,7 +48,7 @@ export default function HomePage() {
           onNotifications={() => router.push("/(tabs)/explore/notificaciones")}
         />
         <View style={styles.membershipWrap}>
-          <MembershipSummary membership={membresia} onPress={() => router.push("/(tabs)/explore/planes")} />
+          <MembershipSummary membership={membresia} onPress={() => router.push("/(tabs)/explore/mis-membresias")} />
         </View>
         <View style={styles.sections}>
           <ProductsShowcase products={productos} />
