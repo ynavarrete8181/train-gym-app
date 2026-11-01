@@ -58,9 +58,9 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (credentials) => {
     try {
-      const email = String(credentials?.email || "").trim().toLowerCase();
+      const identificador = String(credentials?.identificador || "").trim();
       const { data } = await apiClient.post("/base/auth/login", {
-        email,
+        identificador,
         password: credentials?.password || "",
       });
       const nextToken = data?.datos?.token || data?.token || data?.access_token || null;
