@@ -47,10 +47,9 @@ export const getEvaluaciones = async () => {
 export const getPlanes = async () => {
   try {
     const response = await apiClient.get("/app/planes");
-    return response.data.data;
+    return response.data?.datos ?? response.data?.data ?? [];
   } catch (error) {
-    const errorMsg = normalizeApiError(error);
-    console.error("Error fetching planes:", errorMsg);
-    throw new Error(errorMsg);
+    // El componente muestra el error de manera recuperable, sin activar RedBox.
+    throw new Error(normalizeApiError(error, "No se pudieron consultar los planes disponibles."));
   }
 };
