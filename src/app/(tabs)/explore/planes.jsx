@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,14 +19,16 @@ export default function PlanesPage() {
   const scrollRef = useRef(null);
   const [planes, setPlanes] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const loadPlanes = useCallback(() => {
     setLoading(true);
+    setLoadError(null);
     getPlanes()
       .then(setPlanes)
       .catch((error) => {
-        console.error("Error loading planes:", error);
+        setLoadError(error?.message || "No se pudieron consultar los planes.");
         setPlanes([]);
       })
       .finally(() => setLoading(false));
@@ -35,7 +37,7 @@ export default function PlanesPage() {
   useRefreshOnFocus(scrollRef, loadPlanes);
 
   const filteredPlanes = useMemo(() => {
-    const list = planes || [];
+    const list = Array.isArray(planes) ? planes : [];
     const query = searchQuery.trim().toLowerCase();
     if (!query) return list;
 
@@ -80,7 +82,14 @@ export default function PlanesPage() {
           inputStyle={styles.searchInput}
         />
 
-        {filteredPlanes.length > 0 ? (
+        {loadError ? (
+          <View style={styles.errorCard}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={28} color={colors.warning} />
+            <Text style={styles.errorTitle}>No se pudieron cargar los planes</Text>
+            <Text style={styles.errorBody}>{loadError}</Text>
+            <Pressable onPress={loadPlanes} style={styles.retryButton} accessibilityRole="button"><Text style={styles.retryText}>Reintentar</Text></Pressable>
+          </View>
+        ) : filteredPlanes.length > 0 ? (
           <View style={styles.list}>
             {filteredPlanes.map((plan, index) => (
               <PlanCard key={plan.id || `${plan.nombre}-${index}`} plan={plan} featured={index === 0 && !searchQuery} />
@@ -99,8 +108,8 @@ export default function PlanesPage() {
 }
 
 function PlanCard({ plan, featured }) {
-  const durationText = formatDuration(plan.duracion_dias);
-  const price = Number(plan.precio || 0);
+  const durationText = formatDuration(plan.tipo_duracion, plan.duracion);
+  const price = plan.precio == null ? null : Number(plan.precio);
 
   return (
     <AppCard style={[styles.planCard, featured && styles.planCardFeatured]}>
@@ -122,12 +131,12 @@ function PlanCard({ plan, featured }) {
       <View style={styles.planFooter}>
         <View>
           <Text style={styles.priceLabel}>Desde</Text>
-          <Text style={styles.priceValue}>${price.toFixed(2)}</Text>
+          <Text style={styles.priceValue}>{price == null ? "Consultar" : `${price.toFixed(2)}`}</Text>
         </View>
         <View style={styles.billingPill}>
           <MaterialCommunityIcons name="calendar-sync-outline" size={16} color={colors.primaryStrong} />
           <Text style={styles.billingText}>
-            {plan.facturacion_automatica ? "Renovable" : "Pago manual"}
+            {plan.renovable ? "Renovable" : "Pago único"}
           </Text>
         </View>
       </View>
@@ -135,17 +144,19 @@ function PlanCard({ plan, featured }) {
   );
 }
 
-function formatDuration(days) {
-  const value = Number(days || 0);
-  if (!value) return "Duracion por definir";
-  if (value % 30 === 0) {
-    const months = value / 30;
-    return months === 1 ? "1 mes" : `${months} meses`;
-  }
-  return value === 1 ? "1 dia" : `${value} dias`;
+function formatDuration(type, duration) {
+  const value = Number(duration || 0);
+  if (!value) return "Duración según modalidad";
+  const unit = { DIAS: ["día", "días"], SEMANAS: ["semana", "semanas"], MESES: ["mes", "meses"], ANIOS: ["año", "años"] }[String(type || "").toUpperCase()] || ["período", "períodos"];
+  return `${value} ${value === 1 ? unit[0] : unit[1]}`;
 }
 
 const styles = StyleSheet.create({
+  errorCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 22, alignItems: "center", gap: 12 },
+  errorTitle: { color: colors.text, fontSize: 17, fontWeight: "900", textAlign: "center" },
+  errorBody: { color: colors.textSoft, fontSize: 13, textAlign: "center" },
+  retryButton: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 },
+  retryText: { color: colors.text, fontWeight: "900" },
   center: {
     alignItems: "center",
     justifyContent: "center",
