@@ -1,8 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { colors } from "../../../theme/colors";
 import { getScreenTopPadding } from "../../../theme/layout";
+
+const LOGO = require("../../../../assets/images/revive-official-home.png");
 
 function shortName(name) {
   if (typeof name === "object") name = name?.nombres || name?.name;
@@ -11,56 +13,54 @@ function shortName(name) {
 }
 
 export default function HomeHero({ name, plan, topInset, onNotifications, onHelp }) {
-  const completed = Number(plan?.ejerciciosCompletados ?? 0);
-  const total = Number(plan?.ejerciciosTotal ?? 0);
-  const percent = Math.min(100, Math.max(0, Number(plan?.porcentaje ?? 0)));
+  const completed = Math.max(0, Number(plan?.ejerciciosCompletados || 0));
+  const total = Math.max(0, Number(plan?.ejerciciosTotal || 0));
+  const percent = Math.min(100, Math.max(0, Number(plan?.porcentaje || 0)));
   return (
-    <View style={[styles.hero, { paddingTop: getScreenTopPadding(topInset, 10) }]}>
+    <View style={[styles.hero, { paddingTop: getScreenTopPadding(topInset, 3) }]}>
       <View style={styles.nav}>
-        <View style={styles.brand}>
-          <View style={styles.brandMark}><Text style={styles.brandLetter}>R<Text style={styles.brandDot}>.</Text></Text></View>
-          <Text style={styles.brandWhite}>EVIVE</Text><Text style={styles.brandGold}>SPORTS</Text>
-        </View>
+        <Image source={LOGO} resizeMode="contain" style={styles.logo} accessibilityLabel="REVIVE SPORTS" />
         <View style={styles.actions}>
           <Pressable onPress={onHelp} accessibilityRole="button" accessibilityLabel="Ayuda" style={styles.topButton}>
-            <MaterialCommunityIcons name="help-circle-outline" size={23} color={colors.white} />
+            <MaterialCommunityIcons name="help-circle-outline" size={22} color={colors.white} />
           </Pressable>
           <Pressable onPress={onNotifications} accessibilityRole="button" accessibilityLabel="Notificaciones" style={styles.topButton}>
-            <MaterialCommunityIcons name="bell-outline" size={23} color={colors.white} />
+            <MaterialCommunityIcons name="bell-outline" size={22} color={colors.white} />
           </Pressable>
         </View>
       </View>
       <View style={styles.welcome}>
-        <View style={styles.progressCircle}>
-          <View style={styles.progressInner}><MaterialCommunityIcons name="dumbbell" size={28} color={colors.accent} /></View>
-          <Text style={styles.progressText}>{total > 0 ? `${Math.min(completed, total)}/${total}` : "REVIVE"}</Text>
-        </View>
         <View style={styles.welcomeCopy}>
-          <Text style={styles.hello} numberOfLines={2}>¡Hola, {shortName(name)}!</Text>
-          <Text style={styles.subtitle}>Tu próximo objetivo comienza con tu entrenamiento de hoy.</Text>
-          {total > 0 ? <Text style={styles.achievement}>{percent}% de tu plan completado</Text> : <Text style={styles.achievement}>Play · Move · Revive</Text>}
+          <Text style={styles.hello} numberOfLines={1}>¡Hola, {shortName(name)}!</Text>
+          <Text style={styles.subtitle}>
+            {total > 0 ? `Has completado ${Math.min(completed, total)} de ${total} ejercicios de tu plan.` : "Play · Move · Revive"}
+          </Text>
         </View>
+        {total > 0 && <View style={styles.progress}>
+          <MaterialCommunityIcons name="dumbbell" color={colors.accent} size={20} />
+          <Text style={styles.progressLabel}>{percent}%</Text>
+        </View>}
       </View>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.primaryDark, paddingHorizontal: 20, paddingBottom: 94, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  nav: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  brand: { flexDirection: "row", alignItems: "center" },
-  brandMark: { width: 35, height: 35, borderRadius: 10, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
-  brandLetter: { fontWeight: "900", fontSize: 25, fontStyle: "italic", color: colors.primaryDark },
-  brandDot: { color: colors.accent },
-  brandWhite: { fontWeight: "900", fontSize: 18, color: colors.white, letterSpacing: 0.6 },
-  brandGold: { fontWeight: "900", fontSize: 17, color: colors.accent, letterSpacing: 0.2 },
-  actions: { flexDirection: "row", gap: 7 },
-  topButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
-  welcome: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 29 },
-  progressCircle: { width: 112, height: 112, borderRadius: 56, borderWidth: 3, borderColor: colors.accent, alignItems: "center", justifyContent: "center" },
-  progressInner: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.09)" },
-  progressText: { fontWeight: "800", color: colors.white, fontSize: 11, marginTop: 3 },
+  hero: {
+    backgroundColor: colors.primaryDark,
+    paddingHorizontal: 20,
+    paddingBottom: 65,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  nav: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: 58 },
+  logo: { width: 200, height: 67 },
+  actions: { flexDirection: "row", gap: 8 },
+  topButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
+  welcome: { flexDirection: "row", alignItems: "center", marginTop: 5, gap: 10 },
   welcomeCopy: { flex: 1, minWidth: 0 },
-  hello: { color: colors.white, fontSize: 21, fontWeight: "900" },
-  subtitle: { marginTop: 7, fontSize: 12, lineHeight: 18, color: "#CFD6E2" },
-  achievement: { marginTop: 9, color: colors.accent, fontSize: 12, fontWeight: "800" },
+  hello: { fontSize: 20, fontWeight: "900", color: colors.white },
+  subtitle: { marginTop: 4, fontSize: 12, color: "#D3DAE4", lineHeight: 17 },
+  progress: { flexDirection: "row", alignItems: "center", gap: 4, padding: 8, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.1)" },
+  progressLabel: { fontSize: 13, fontWeight: "900", color: colors.accent },
 });
