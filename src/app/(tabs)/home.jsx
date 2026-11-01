@@ -71,8 +71,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   loading: { flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" },
   loadingText: { marginTop: 12, color: colors.textSoft, fontWeight: "700" },
-  membershipWrap: { marginTop: -73, marginHorizontal: 20, zIndex: 1 },
-  sections: { paddingHorizontal: 20, gap: 25, paddingTop: 26 },
+  membershipWrap: { marginTop: 16, marginHorizontal: 20 },
+  sections: { paddingHorizontal: 20, gap: 25, paddingTop: 24 },
   video: { height: 220, borderRadius: 14, overflow: "hidden" },
   help: { marginTop: 12, color: colors.textSoft, fontSize: 13, lineHeight: 20 },
 });
