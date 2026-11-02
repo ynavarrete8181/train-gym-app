@@ -17,6 +17,8 @@ export default function CicloVidaMembresiaCard({ membresia }) {
   const cantidadPeriodos = membresia.cantidad_periodos_contratados;
   const contratoConCuotas = cantidadPeriodos !== null && cantidadPeriodos !== undefined;
   const programadas = cuotas.filter(c => String(c.estado || "").toUpperCase() === "PROGRAMADA").length;
+  const suspensiones = Array.isArray(membresia.suspensiones) ? membresia.suspensiones : [];
+  const vigente = suspensiones.find(s => String(s.estado).toUpperCase() === "VIGENTE");
 
   const descripcion = ["VENCIDA", "CANCELADA"].includes(estado)
     ? "Este contrato finalizó. Un nuevo ingreso corresponde a otra contratación; la reapertura del contrato es excepcional."
@@ -53,6 +55,21 @@ export default function CicloVidaMembresiaCard({ membresia }) {
         <MaterialCommunityIcons name="information-outline" size={19} color={colors.textSoft}/>
         <Text style={styles.noteText}>{descripcion}</Text>
       </View>
+      {vigente ? <View style={styles.note}>
+        <MaterialCommunityIcons name="pause-circle-outline" size={20} color={colors.warning} />
+        <Text style={styles.noteText}>
+          Congelación vigente desde {fechaCorta(vigente.fecha_inicio)} hasta {fechaCorta(vigente.fecha_fin_prevista)}.
+          Tu club confirmará la fecha efectiva de regreso y la nueva vigencia.
+        </Text>
+      </View> : null}
+      {suspensiones.length > 0 ? <View style={styles.metrics}>
+        <Text style={styles.title}>Historial de congelaciones</Text>
+        {suspensiones.map(s => <View key={String(s.id)} style={styles.metric}>
+          <Text style={styles.value}>{s.tipo === "FACTURACION" ? "Facturación" : "Tiempo"} · {s.estado}</Text>
+          <Text style={styles.label}>{fechaCorta(s.fecha_inicio)} – {fechaCorta(s.fecha_fin_real || s.fecha_fin_prevista)}</Text>
+          <Text style={styles.label}>Días reconocidos: {s.dias_reconocidos ?? 0}</Text>
+        </View>)}
+      </View> : null}
       <Text style={styles.disclaimer}>
         Este resumen es informativo. Los pagos confirmados y saldos se administran en Ventas y Cartera; el estado de la membresía no cancela automáticamente una deuda.
       </Text>
