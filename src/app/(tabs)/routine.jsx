@@ -1,203 +1,120 @@
-import { ScrollView, RefreshControl, StyleSheet } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRef, useState } from "react";
-import EmptyState from "../../components/common/EmptyState";
-import LoadingView from "../../components/common/LoadingView";
-import ExerciseCard from "../../components/routine/ExerciseCard";
-import RoutineHeader from "../../components/routine/RoutineHeader";
-import WeekSelector from "../../components/routine/WeekSelector";
-import DaySelector from "../../components/routine/DaySelector";
-import SecuenciaEjecucionModal from "../../components/routine/SecuenciaEjecucionModal";
 import AppHeader from "../../components/common/AppHeader";
-import AppWatermarkBackground from "../../components/common/AppWatermarkBackground";
-import { useRoutine } from "../../features/routine/useTodayRoutine";
-import { registerExecution } from "../../features/routine/routineService";
-import { appStyles } from "../../theme/theme";
+import AppCard from "../../components/common/AppCard";
+import RoutineExerciseCard from "../../features/routine/components/RoutineExerciseCard";
+import { consultarMiRutina } from "../../features/routine/services/memberRoutineService";
 import { colors } from "../../theme/colors";
 import { getScreenBottomPadding } from "../../theme/layout";
-import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 
-import CustomAlert from "../../components/common/CustomAlert";
+const DIAS = [
+  ["LUNES", "Lun"], ["MARTES", "Mar"], ["MIERCOLES", "Mié"],
+  ["JUEVES", "Jue"], ["VIERNES", "Vie"], ["SABADO", "Sáb"], ["DOMINGO", "Dom"],
+];
+const currentDay = () => DIAS[(new Date().getDay() + 6) % 7][0];
 
 export default function RoutinePage() {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef(null);
-  const { 
-    selectedWeek, 
-    selectedDay, 
-    setSelectedWeek, 
-    setSelectedDay, 
-    totalWeeks,
-    routine, 
-    notConfigured,
-    noPlan,
-    loading, 
-    reload 
-  } = useRoutine();
+  const [week, setWeek] = useState(1);
+  const [day, setDay] = useState(currentDay);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [selectedExercise, setSelectedExercise] = useState(null);
-  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'success' });
-  const [refreshing, setRefreshing] = useState(false);
-
-  useRefreshOnFocus(scrollRef, () => reload(true), { skipInitial: true });
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await reload(true);
-    setRefreshing(false);
-  };
-
-  const showAlert = (title, message, type = 'success') => {
-    setAlertConfig({ visible: true, title, message, type });
-  };
-
-  const handleSaveExecution = async (payload) => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      // Agregar datos necesarios que no vienen del modal
-      payload.plan_ejercicio_id = selectedExercise?.plan_ejercicio_id;
-      payload.plan_id = routine.planId;
-      payload.semana = selectedWeek || routine.week || 1;
-      payload.dia = selectedDay || routine.day;
-      // Usar la fecha actual (idealmente la del dispositivo)
-      payload.fecha_ejecucion = new Date().toISOString().split('T')[0];
-
-      await registerExecution(payload);
-      setSelectedExercise(null);
-      showAlert("¡Excelente!", "Tu ejecución ha sido registrada.", "success");
-      reload(true); // Recargar la rutina silenciosamente (sin pantalla de carga) para actualizar los datos
-    } catch (_error) {
-      showAlert("Error", "No se pudo registrar la ejecución. Intenta de nuevo.", "error");
+      setData(await consultarMiRutina(week, day));
+    } catch (_err) {
+      setData(null);
+      setError("No se pudo consultar tu rutina. Verifica la conexión e intenta nuevamente.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [week, day]);
 
-  const renderContent = () => {
-    if (loading) {
-      return <LoadingView message="Cargando rutina..." />;
-    }
+  useEffect(() => { load(); }, [load]);
 
-    if (noPlan) {
-      return (
-        <EmptyState
-          icon="clipboard-text-off-outline"
-          title="Sin asignación activa"
-          subtitle="Actualmente no tienes un plan de entrenamiento asignado. Visita la plataforma web para configurar tu próximo desafío."
-        />
-      );
-    }
+  const estado = data?.estado;
+  const maxWeeks = Math.max(1, Math.min(52, Number(data?.total_semanas || 1)));
+  const exercises = Array.isArray(data?.ejercicios) ? data.ejercicios : [];
 
-    if (notConfigured) {
-      return (
-        <EmptyState
-          icon="clipboard-alert-outline"
-          title="Plan no configurado"
-          subtitle="Tu entrenador aún no ha configurado las rutinas de tu plan activo."
-        />
-      );
-    }
-
-    if (!routine?.exercises?.length) {
-      return (
-        <EmptyState
-          icon="beach"
-          title="Día de descanso"
-          subtitle="No hay ejercicios programados para este día. ¡Recupera energías!"
-        />
-      );
-    }
-
-    return (
-      <>
-
-        {routine.exercises.map((item, index) => (
-          <ExerciseCard
-            key={item.plan_ejercicio_id ? `plan-${item.plan_ejercicio_id}` : `exercise-${item.id}-${index}`}
-            item={item}
-            planId={routine.planId}
-            week={selectedWeek || routine.week || 1}
-            day={selectedDay || routine.day}
-            onExecute={() => setSelectedExercise(item)}
-          />
-        ))}
-      </>
-    );
-  };
-
-  return (
-    <AppWatermarkBackground style={appStyles.screen}>
-      <AppHeader
-        icon="dumbbell"
-        title="Rutina"
-        subtitle="Tu entrenamiento del día."
-        showSettings
-        rounded
-      />
-
-      <ScrollView 
-        ref={scrollRef}
-        style={styles.scrollArea} 
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: getScreenBottomPadding(insets.bottom), gap: 16 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-        {/* Encabezado del Plan Activo - Siempre visible si tenemos datos del plan */}
-        {routine && (
-          <RoutineHeader
-            planName={routine.planName}
-            dayLabel={routine.dayLabel}
-            weekLabel={routine.weekLabel}
-            summary={routine.summary}
-          />
-        )}
-
-        {/* Selectores debajo del encabezado - Ocultos si no hay plan o no está configurado */}
-        {!noPlan && !notConfigured && (
-          <>
-            <WeekSelector 
-              totalWeeks={totalWeeks}
-              selectedWeek={selectedWeek} 
-              onSelectWeek={setSelectedWeek} 
-            />
-            
-            <DaySelector 
-              selectedDay={selectedDay} 
-              onSelectDay={setSelectedDay} 
-            />
-          </>
-        )}
-
-        {/* Contenido dinámico (Loading, EmptyState, Ejercicios) */}
-        {renderContent()}
-      </ScrollView>
-
-      {/* Modal de Secuencia de Ejecución */}
-      <SecuenciaEjecucionModal
-        visible={!!selectedExercise}
-        onClose={() => setSelectedExercise(null)}
-        onSave={handleSaveExecution}
-        exerciseName={selectedExercise?.name}
-        initialSeries={parseInt(selectedExercise?.series, 10) || 1}
-        initialReps={selectedExercise?.reps}
-        initialLoad={selectedExercise?.load}
-        plannedSeries={selectedExercise?.plannedSeries || []}
-        initialExecution={selectedExercise?.ejecucion}
-      />
-
-      <CustomAlert 
-        visible={alertConfig.visible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
-      />
-    </AppWatermarkBackground>
-  );
+  return <View style={styles.root}>
+    <AppHeader title="Mi rutina" subtitle="Entrenamiento según tu membresía" icon="dumbbell" rounded />
+    <ScrollView refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent}/>}
+      contentContainerStyle={[styles.content, {paddingBottom:getScreenBottomPadding(insets.bottom,30)}]}>
+      {loading && !data ? <ActivityIndicator size="large" color={colors.accent}/> : null}
+      {error ? <AppCard style={styles.notice}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={28} color={colors.warning}/>
+        <Text style={styles.noticeText}>{error}</Text>
+        <Pressable onPress={load} style={styles.retry}><Text style={styles.retryText}>Reintentar</Text></Pressable>
+      </AppCard> : null}
+      {!error && data && estado !== "DISPONIBLE" ? <AppCard style={styles.notice}>
+        <MaterialCommunityIcons name="clipboard-text-off-outline" size={39} color={colors.accentDark}/>
+        <Text style={styles.title}>{estado === "SIN_MEMBRESIA_VIGENTE" ? "Sin membresía vigente" : estado === "SIN_PLAN_ENTRENAMIENTO" ? "Sin rutina asignada" : "Rutina no disponible"}</Text>
+        <Text style={styles.noticeText}>{data.mensaje || "Consulta con el gimnasio para configurar tu entrenamiento."}</Text>
+      </AppCard> : null}
+      {!error && estado === "DISPONIBLE" ? <>
+        <AppCard style={styles.summary}>
+          <Text style={styles.eyebrow}>MI MEMBRESÍA</Text>
+          <Text style={styles.memberTitle}>{data.membresia?.nombre}</Text>
+          <View style={styles.divider}/>
+          <Text style={styles.eyebrow}>PLAN DE ENTRENAMIENTO</Text>
+          <Text style={styles.planTitle}>{data.plan?.nombre}</Text>
+          {data.plan?.objetivo ? <Text style={styles.objective}>{data.plan.objetivo}</Text> : null}
+        </AppCard>
+        <Text style={styles.sectionTitle}>Selecciona tu semana</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choices}>
+          {Array.from({length:maxWeeks}, (_,i)=>i+1).map(n=><Pressable key={n} onPress={()=>setWeek(n)} style={[styles.chip,week===n&&styles.chipActive]}>
+            <Text style={[styles.chipText,week===n&&styles.chipTextActive]}>Semana {n}</Text>
+          </Pressable>)}
+        </ScrollView>
+        <Text style={styles.sectionTitle}>Día de entrenamiento</Text>
+        <View style={styles.days}>
+          {DIAS.map(([key,label])=><Pressable key={key} onPress={()=>setDay(key)} style={[styles.day,day===key&&styles.chipActive]}>
+            <Text style={[styles.chipText,day===key&&styles.chipTextActive]}>{label}</Text>
+          </Pressable>)}
+        </View>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Ejercicios</Text>
+          <Text style={styles.count}>{exercises.length} asignados</Text>
+        </View>
+        {loading ? <ActivityIndicator color={colors.accent}/> : exercises.length ?
+          exercises.map((e,i)=><RoutineExerciseCard key={String(e.id)} ejercicio={e} index={i}/>) :
+          <AppCard style={styles.notice}><MaterialCommunityIcons name="weather-night" color={colors.accentDark} size={36}/>
+            <Text style={styles.title}>Sin ejercicios para este día</Text>
+            <Text style={styles.noticeText}>Tu entrenador no ha programado ejercicios para esta combinación de semana y día.</Text>
+          </AppCard>}
+      </> : null}
+    </ScrollView>
+  </View>;
 }
-
-const styles = StyleSheet.create({
-  scrollArea: {
-    flex: 1,
-    marginTop: -20,
-    zIndex: 10,
-  },
+const styles=StyleSheet.create({
+  root:{flex:1,backgroundColor:colors.background},
+  content:{paddingHorizontal:20,paddingTop:20,gap:15},
+  notice:{padding:25,borderRadius:18,alignItems:"center",gap:12},
+  noticeText:{color:colors.textSoft,textAlign:"center",fontSize:13,lineHeight:19},
+  title:{fontSize:18,fontWeight:"900",color:colors.text,textAlign:"center"},
+  retry:{paddingVertical:10,paddingHorizontal:18,backgroundColor:colors.primary,borderRadius:12},
+  retryText:{fontSize:13,fontWeight:"900",color:colors.white},
+  summary:{padding:18,borderRadius:18,gap:6},
+  eyebrow:{fontSize:11,fontWeight:"900",color:colors.muted},
+  memberTitle:{fontSize:19,fontWeight:"900",color:colors.text},
+  divider:{height:1,backgroundColor:colors.border,marginVertical:9},
+  planTitle:{fontSize:16,fontWeight:"900",color:colors.text},
+  objective:{fontSize:12,color:colors.textSoft,marginTop:4},
+  sectionTitle:{fontSize:17,fontWeight:"900",color:colors.text},
+  choices:{gap:9,paddingVertical:2},
+  chip:{borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.white,paddingHorizontal:15,paddingVertical:10},
+  chipActive:{backgroundColor:colors.primaryDark,borderColor:colors.primaryDark},
+  chipText:{fontSize:12,fontWeight:"800",color:colors.text},
+  chipTextActive:{color:colors.white},
+  days:{flexDirection:"row",gap:4,justifyContent:"space-between"},
+  day:{flex:1,alignItems:"center",paddingVertical:11,borderRadius:11,backgroundColor:colors.white,borderWidth:1,borderColor:colors.border},
+  sectionHeader:{flexDirection:"row",justifyContent:"space-between",alignItems:"center"},
+  count:{fontSize:12,color:colors.textSoft,fontWeight:"700"},
 });
