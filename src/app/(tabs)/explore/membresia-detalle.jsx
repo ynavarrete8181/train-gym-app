@@ -9,6 +9,7 @@ import { colors } from "../../../theme/colors";
 import { getScreenBottomPadding } from "../../../theme/layout";
 import { obtenerMisMembresias } from "../../../features/membresias/services/misMembresiasService";
 import { dinero, estadoMembresia, fechaCorta } from "../../../features/membresias/components/MembresiaAsignadaCard";
+import CicloVidaMembresiaCard from "../../../features/membresias/components/CicloVidaMembresiaCard";
 
 function Row({label,value}) {
   if(value===null||value===undefined||value==="") return null;
@@ -54,6 +55,7 @@ export default function DetalleMembresiaPage() {
           <Row label="Renovación automática" value={boolText(m.renovacion_automatica)}/>
           <Row label="Próximo cobro programado" value={m.proxima_fecha_cobro && fechaCorta(m.proxima_fecha_cobro)}/>
         </Section>
+        <CicloVidaMembresiaCard membresia={m} />
         <Section title="Modalidad y condiciones">
           <Row label="Duración" value={m.modalidad_duracion && `${m.modalidad_duracion} ${m.modalidad_tipo_duracion||"períodos"}`}/>
           <Row label="Días por semana" value={m.modalidad_dias_por_semana}/>
