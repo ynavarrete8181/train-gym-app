@@ -6,7 +6,7 @@ import { colors } from "../../../theme/colors";
 import { fechaCorta } from "./MembresiaAsignadaCard";
 
 /**
- * Política C — Fase 1. Pantalla de consulta, no habilita acciones de negocio.
+ * Política C — Fase 3. Consulta deportiva y calendario financiero, sin editar.
  * El servidor decide las fechas efectivas y la emisión de ventas/cuotas.
  */
 export default function CicloVidaMembresiaCard({ membresia }) {
@@ -17,6 +17,7 @@ export default function CicloVidaMembresiaCard({ membresia }) {
   const cantidadPeriodos = membresia.cantidad_periodos_contratados;
   const contratoConCuotas = cantidadPeriodos !== null && cantidadPeriodos !== undefined;
   const programadas = cuotas.filter(c => String(c.estado || "").toUpperCase() === "PROGRAMADA").length;
+  const reprogramaciones = Array.isArray(membresia.reprogramaciones) ? membresia.reprogramaciones : [];
   const suspensiones = Array.isArray(membresia.suspensiones) ? membresia.suspensiones : [];
   const vigente = suspensiones.find(s => String(s.estado).toUpperCase() === "VIGENTE");
 
@@ -68,6 +69,14 @@ export default function CicloVidaMembresiaCard({ membresia }) {
           <Text style={styles.value}>{s.tipo === "FACTURACION" ? "Facturación" : "Tiempo"} · {s.estado}</Text>
           <Text style={styles.label}>{fechaCorta(s.fecha_inicio)} – {fechaCorta(s.fecha_fin_real || s.fecha_fin_prevista)}</Text>
           <Text style={styles.label}>Días reconocidos: {s.dias_reconocidos ?? 0}</Text>
+        </View>)}
+      </View> : null}
+      {reprogramaciones.some(r => r.cuota_id) ? <View style={styles.metrics}>
+        <Text style={styles.title}>Vencimientos reprogramados</Text>
+        {reprogramaciones.filter(r => r.cuota_id).map(r => <View key={String(r.id)} style={styles.metric}>
+          <Text style={styles.value}>Nuevo vencimiento: {fechaCorta(r.vencimiento_nuevo)}</Text>
+          <Text style={styles.label}>Anterior: {fechaCorta(r.vencimiento_anterior)}</Text>
+          <Text style={styles.label}>Nueva emisión: {fechaCorta(r.emision_nueva)}</Text>
         </View>)}
       </View> : null}
       <Text style={styles.disclaimer}>
