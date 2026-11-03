@@ -49,7 +49,10 @@ export default function DetalleMembresiaPage() {
           <Row label="Tipo" value={m.tipo_producto}/>
           <Row label="Modalidad" value={m.modalidad_nombre || "No aplica"}/>
           <Row label="Fecha de inicio" value={fechaCorta(m.fecha_inicio)}/>
-          <Row label="Fecha de fin" value={fechaCorta(m.fecha_fin)}/>
+          <Row label="Vigencia actual hasta" value={fechaCorta(m.fecha_fin_vigente || m.fecha_fin)}/>
+          {m.fecha_fin_original && String(m.fecha_fin_original).slice(0,10)
+            !== String(m.fecha_fin).slice(0,10)
+            ? <Row label="Vencimiento originalmente pactado" value={fechaCorta(m.fecha_fin_original)}/> : null}
           <Row label="Precio contratado" value={dinero(m.precio_aplicado)}/>
           <Row label="Renovable" value={boolText(m.renovable)}/>
           <Row label="Renovación automática" value={boolText(m.renovacion_automatica)}/>
@@ -82,11 +85,15 @@ export default function DetalleMembresiaPage() {
           <Row label="Comprobante / venta" value={m.venta_numero||"Sin venta vinculada"}/>
           <Row label="Estado de venta" value={m.venta_estado}/>
           <Row label="Total de venta" value={dinero(m.venta_total)}/>
-          <Text style={styles.secondary}>Las cuotas muestran únicamente pagos confirmados registrados por el sistema.</Text>
+          <Row label="Pagos confirmados" value={dinero(m.total_pagado_confirmado)}/>
+          <Row label="Saldo emitido pendiente" value={dinero(m.saldo_ventas_emitidas)}/>
+          <Text style={styles.secondary}>Las cuotas muestran únicamente pagos confirmados.
+            Una cuota futura sin emitir no constituye todavía una venta ni deuda emitida.</Text>
         </Section>
         {(m.periodos||[]).length ? <Section title="Períodos del contrato">
           {m.periodos.map((p,i)=><View key={p.id||i} style={styles.group}>
             <Row label="Período" value={p.numero_periodo}/>
+            {p.renovacion_manual ? <Row label="Origen" value="Renovación manual del mismo contrato"/> : null}
             <Row label="Desde" value={fechaCorta(p.fecha_inicio)}/>
             <Row label="Hasta" value={fechaCorta(p.fecha_fin)}/>
             <Row label="Estado" value={p.estado}/>
@@ -97,6 +104,8 @@ export default function DetalleMembresiaPage() {
           {m.cuotas.map((c,i)=><View key={c.id||i} style={styles.group}>
             <Row label="Cuota" value={c.numero_cuota}/>
             <Row label="Estado" value={c.estado}/>
+            <Row label="Venta" value={c.venta_numero || "Aún no emitida"}/>
+            <Row label="Estado de venta" value={c.venta_estado || "Sin emisión"}/>
             <Row label="Vencimiento" value={fechaCorta(c.fecha_vencimiento)}/>
             <Row label="Monto" value={dinero(c.monto)}/>
             <Row label="Pagado confirmado" value={dinero(c.monto_pagado)}/>
