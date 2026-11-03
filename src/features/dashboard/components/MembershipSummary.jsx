@@ -7,7 +7,12 @@ import { colors } from "../../../theme/colors";
 export default function MembershipSummary({ membership, onPress }) {
   const status = String(membership?.estado || "").toUpperCase();
   const active = Boolean(membership) && (!status || status === "ACTIVA" || status === "ACTIVO" || status === "VIGENTE");
-  const endDate = membership?.fecha_fin;
+  const displayStatus = !membership ? "SIN MEMBRESÍA"
+    : active ? "ACTIVA" : status === "CONGELADA" ? "CONGELADA"
+      : status === "PENDIENTE_PAGO" ? "PENDIENTE DE PAGO"
+        : status === "VENCIDA" ? "VENCIDA"
+          : status === "CANCELADA" ? "CANCELADA" : status || "PENDIENTE";
+  const endDate = membership?.fecha_fin_vigente || membership?.fecha_fin;
   const date = endDate ? String(endDate).substring(0, 10) : null;
   return (
     <AppCard style={styles.card}>
@@ -19,7 +24,7 @@ export default function MembershipSummary({ membership, onPress }) {
           <Text style={styles.detail}>{date ? `Vence: ${date}` : "Consulta tus planes disponibles"}</Text>
         </View>
         <View style={[styles.pill, active ? styles.pillActive : styles.pillPending]}>
-          <Text style={[styles.pillText, { color: active ? "#047857" : "#92400E" }]}>{active ? "ACTIVA" : "PENDIENTE"}</Text>
+          <Text style={[styles.pillText, { color: active ? "#047857" : "#92400E" }]}>{displayStatus}</Text>
         </View>
       </View>
       <View style={styles.rule} />
