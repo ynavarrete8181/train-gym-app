@@ -20,6 +20,9 @@ export default function CicloVidaMembresiaCard({ membresia }) {
   const reprogramaciones = Array.isArray(membresia.reprogramaciones) ? membresia.reprogramaciones : [];
   const suspensiones = Array.isArray(membresia.suspensiones) ? membresia.suspensiones : [];
   const vigente = suspensiones.find(s => String(s.estado).toUpperCase() === "VIGENTE");
+  const renovaciones = Array.isArray(membresia.periodos_renovados) ? membresia.periodos_renovados : [];
+  const dinero = importe => typeof importe === "number" && Number.isFinite(importe)
+    ? `${importe.toFixed(2)}` : "No disponible";
 
   const descripcion = ["VENCIDA", "CANCELADA"].includes(estado)
     ? "Este contrato finalizó. Un nuevo ingreso corresponde a otra contratación; la reapertura del contrato es excepcional."
@@ -41,7 +44,11 @@ export default function CicloVidaMembresiaCard({ membresia }) {
       <View style={styles.metrics}>
         <View style={styles.metric}>
           <Text style={styles.label}>Vigencia registrada</Text>
-          <Text style={styles.value}>{fechaCorta(membresia.fecha_inicio)} – {fechaCorta(membresia.fecha_fin)}</Text>
+          <Text style={styles.value}>{fechaCorta(membresia.fecha_inicio)} – {fechaCorta(membresia.fecha_fin_vigente || membresia.fecha_fin)}</Text>
+          {membresia.fecha_fin_original
+            && String(membresia.fecha_fin_original).slice(0, 10) !== String(membresia.fecha_fin).slice(0, 10)
+            ? <Text style={styles.label}>Vencimiento original: {fechaCorta(membresia.fecha_fin_original)}</Text>
+            : null}
         </View>
         <View style={styles.metric}>
           <Text style={styles.label}>Tipo de contrato</Text>
@@ -71,6 +78,25 @@ export default function CicloVidaMembresiaCard({ membresia }) {
           <Text style={styles.label}>Días reconocidos: {s.dias_reconocidos ?? 0}</Text>
         </View>)}
       </View> : null}
+      {renovaciones.length ? <View style={styles.metrics}>
+        <Text style={styles.title}>Renovaciones del contrato</Text>
+        {renovaciones.map(r => <View key={String(r.id)} style={styles.metric}>
+          <Text style={styles.value}>Período {r.numero_periodo} · {fechaCorta(r.fecha_inicio)} – {fechaCorta(r.fecha_fin)}</Text>
+          <Text style={styles.label}>Estado: {r.estado || "Programado"} · {r.venta_estado || "Venta aún no emitida"}</Text>
+        </View>)}
+      </View> : null}
+      <View style={styles.metrics}>
+        <Text style={styles.title}>Pagos y Cartera</Text>
+        <View style={styles.metric}>
+          <Text style={styles.label}>Pagos confirmados</Text>
+          <Text style={styles.value}>{dinero(Number(membresia.total_pagado_confirmado))}</Text>
+        </View>
+        <View style={styles.metric}>
+          <Text style={styles.label}>Saldo de ventas emitidas</Text>
+          <Text style={styles.value}>{dinero(Number(membresia.saldo_ventas_emitidas))}</Text>
+        </View>
+        <Text style={styles.label}>Las cuotas futuras sin emitir no forman parte del saldo de ventas emitidas.</Text>
+      </View>
       {reprogramaciones.some(r => r.cuota_id) ? <View style={styles.metrics}>
         <Text style={styles.title}>Vencimientos reprogramados</Text>
         {reprogramaciones.filter(r => r.cuota_id).map(r => <View key={String(r.id)} style={styles.metric}>
