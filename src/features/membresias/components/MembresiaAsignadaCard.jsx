@@ -7,6 +7,7 @@ import { colors } from "../../../theme/colors";
 export const estadoMembresia = (m) => {
   const codigo = String(m?.estado || "").toUpperCase();
   if (codigo === "ACTIVA" || codigo === "ACTIVO") return { label: "Activa", tint: "#047857", bg: "#DFF7EC" };
+  if (codigo === "CONGELADA") return { label: "Congelada", tint: "#92400E", bg: "#FFF3D6" };
   if (codigo === "PENDIENTE_PAGO") return { label: "Pendiente de pago", tint: "#92400E", bg: "#FFF3D6" };
   if (codigo === "VENCIDA") return { label: "Vencida", tint: "#B91C1C", bg: "#FEE2E2" };
   if (codigo === "CANCELADA") return { label: "Cancelada", tint: "#64748B", bg: "#F1F5F9" };
