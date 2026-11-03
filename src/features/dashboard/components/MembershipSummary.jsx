@@ -5,7 +5,7 @@ import AppCard from "../../../components/common/AppCard";
 import { colors } from "../../../theme/colors";
 
 export default function MembershipSummary({ membership, onPress }) {
-  const status = String(membership?.estado || "").toUpperCase();
+  const status = String(membership?.estado_consulta || membership?.estado || "").toUpperCase();
   const active = Boolean(membership) && (!status || status === "ACTIVA" || status === "ACTIVO" || status === "VIGENTE");
   const displayStatus = !membership ? "SIN MEMBRESÍA"
     : active ? "ACTIVA" : status === "CONGELADA" ? "CONGELADA"
