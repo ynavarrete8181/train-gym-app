@@ -63,6 +63,13 @@ export default function CicloVidaMembresiaCard({ membresia }) {
         <MaterialCommunityIcons name="information-outline" size={19} color={colors.textSoft}/>
         <Text style={styles.noteText}>{descripcion}</Text>
       </View>
+      {membresia.renovacion_iniciada_impaga ? <View style={styles.note}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.warning}/>
+        <Text style={styles.noteText}>
+          Tu nueva mensualidad ya empezó y aún no registra pago completo.
+          Consulta Ventas y Cartera para regularizarla; esta información no habilita acceso deportivo.
+        </Text>
+      </View> : null}
       {vigente ? <View style={styles.note}>
         <MaterialCommunityIcons name="pause-circle-outline" size={20} color={colors.warning} />
         <Text style={styles.noteText}>
