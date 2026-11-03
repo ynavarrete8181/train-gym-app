@@ -75,7 +75,11 @@ export default function CicloVidaMembresiaCard({ membresia }) {
         {suspensiones.map(s => <View key={String(s.id)} style={styles.metric}>
           <Text style={styles.value}>{s.tipo === "FACTURACION" ? "Facturación" : "Tiempo"} · {s.estado}</Text>
           <Text style={styles.label}>{fechaCorta(s.fecha_inicio)} – {fechaCorta(s.fecha_fin_real || s.fecha_fin_prevista)}</Text>
-          <Text style={styles.label}>Días reconocidos: {s.dias_reconocidos ?? 0}</Text>
+          <Text style={styles.label}>
+            {s.estado === "FINALIZADA"
+              ? `Días efectivamente reconocidos: ${s.dias_reconocidos ?? "Por confirmar"}`
+              : "Días definitivos pendientes de consolidación"}
+          </Text>
         </View>)}
       </View> : null}
       {renovaciones.length ? <View style={styles.metrics}>
