@@ -37,7 +37,10 @@ export default function RoutinePage() {
     }
   }, [week, day]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   const estado = data?.estado;
   const maxWeeks = Math.max(1, Math.min(52, Number(data?.total_semanas || 1)));
@@ -84,7 +87,7 @@ export default function RoutinePage() {
           <Text style={styles.count}>{exercises.length} asignados</Text>
         </View>
         {loading ? <ActivityIndicator color={colors.accent}/> : exercises.length ?
-          exercises.map((e,i)=><RoutineExerciseCard key={String(e.id)} ejercicio={e} index={i}/>) :
+          exercises.map((e,i)=><RoutineExerciseCard key={String(e.id)} ejercicio={e} index={i} planId={data.plan?.id} week={week} day={day}/>) :
           <AppCard style={styles.notice}><MaterialCommunityIcons name="weather-night" color={colors.accentDark} size={36}/>
             <Text style={styles.title}>Sin ejercicios para este día</Text>
             <Text style={styles.noticeText}>Tu entrenador no ha programado ejercicios para esta combinación de semana y día.</Text>

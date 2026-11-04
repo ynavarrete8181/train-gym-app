@@ -31,6 +31,7 @@ export default function ExerciseDetailPage() {
   const insets = useSafeAreaInsets();
   const { id } = params;
   const initialPlannedSeries = parsePlannedSeries(params.planned_series);
+  const transferencias = parsePlannedSeries(params.transferencias);
   const [detail, setDetail] = useState(null);
   const [plannedSeries, setPlannedSeries] = useState(initialPlannedSeries);
   const [manualRm, setManualRm] = useState("");
@@ -438,6 +439,28 @@ export default function ExerciseDetailPage() {
               <PlannedSeriesList series={plannedSeries} />
             </View>
           </AppCard>
+
+          {transferencias.length ? (
+            <AppCard style={{ borderLeftWidth: 6, borderLeftColor: colors.info || '#3B82F6' }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <MaterialCommunityIcons name="transfer-right" size={20} color={colors.primary} />
+                <Text style={styles.cardTitle}>Ejercicios de transferencia</Text>
+              </View>
+              <View style={{ gap: 12 }}>
+                {transferencias.map((transferencia, index) => (
+                  <View key={transferencia.id || index} style={{ gap: 5, padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft }}>
+                    <Text style={{ color: colors.text, fontWeight: "900" }}>{index + 1}. {transferencia.nombre}</Text>
+                    <Text style={{ color: colors.textSoft, fontSize: 12 }}>{transferencia.modo_aplicacion === "DESPUES_DE_SERIE" ? "Realizar después de cada serie principal" : "Realizar al terminar el ejercicio principal"}</Text>
+                    {(transferencia.series || []).map((serie) => (
+                      <Text key={serie.numero_serie} style={{ color: colors.textSoft, fontSize: 12 }}>
+                        Serie {serie.numero_serie}: {serie.repeticiones ? `${serie.repeticiones} reps` : serie.tiempo_segundos ? `${serie.tiempo_segundos} s` : `${serie.distancia_metros || 0} m`}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </AppCard>
+          ) : null}
 
           {dailyReport ? (
             <DailyExecutionReport report={dailyReport} />

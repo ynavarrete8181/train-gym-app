@@ -103,7 +103,7 @@ function SerieInlineDetail({ serie }) {
         >
           <Text style={{ color: status.color, fontSize: 11, fontWeight: "900" }}>
             {prescription.carga_redondeada
-              ? `${formatNumber(prescription.carga_redondeada)} kg`
+              ? `${formatNumber(prescription.carga_redondeada)} kg · ${formatNumber(prescription.carga_libras ?? Number(prescription.carga_redondeada) * 2.2046226218)} lb`
               : isMissingRmPrescription(serie)
                 ? "RM pendiente"
                 : serie.target_load || "Libre"}

@@ -47,8 +47,8 @@ export default function EvaluacionesPage() {
     <View style={appStyles.screen}>
       <AppHeader
         icon="clipboard-pulse-outline"
-        title="Evaluaciones Fisicas"
-        subtitle="Control de rendimiento y valoraciones de estado."
+        title="Progreso físico"
+        subtitle="Tus medidas corporales y su evolución."
         showBack
         showSettings
       />
@@ -62,14 +62,14 @@ export default function EvaluacionesPage() {
         {evaluaciones && evaluaciones.length > 0 ? (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Historial de evaluaciones</Text>
-              <Text style={styles.sectionSubtitle}>Toca una evaluacion para revisar resultados y observaciones.</Text>
+              <Text style={styles.sectionTitle}>Historial de controles</Text>
+              <Text style={styles.sectionSubtitle}>Toca un control para revisar todas tus medidas.</Text>
             </View>
 
             <View style={styles.list}>
               {evaluaciones.map((ev, index) => (
                 <EvaluationCard
-                  key={`${ev.id || ev.fecha_evaluacion || "evaluacion"}-${index}`}
+                  key={`${ev.id || ev.fecha_registro || ev.fecha_ficha || "control"}-${index}`}
                   item={ev}
                   active={selectedEval === ev}
                   onPress={() => setSelectedEval(ev)}
@@ -80,16 +80,16 @@ export default function EvaluacionesPage() {
         ) : (
           <EmptyState 
             icon="clipboard-pulse-outline"
-            title="Sin evaluaciones" 
-            subtitle="No tienes evaluaciones fisicas registradas todavia." 
+            title="Sin controles físicos" 
+            subtitle="Cuando el gimnasio registre tus medidas, aquí aparecerá tu evolución." 
           />
         )}
       </ScrollView>
 
       <AppModal
         visible={!!selectedEval}
-        title="Detalle de evaluacion"
-        subtitle={selectedEval ? formatDate(selectedEval.fecha_evaluacion) : ""}
+        title="Detalle del control físico"
+        subtitle={selectedEval ? formatDate(selectedEval.fecha_registro || selectedEval.fecha_ficha) : ""}
         icon="clipboard-pulse-outline"
         onClose={() => setSelectedEval(null)}
         footer={
@@ -105,24 +105,23 @@ export default function EvaluacionesPage() {
         {selectedEval && (
           <View style={{ gap: 18 }}>
             <View style={styles.modalHero}>
-              <MaterialCommunityIcons name="clipboard-pulse-outline" size={24} color={getLevelStyle(selectedEval.nivel_resultado).color} />
+              <MaterialCommunityIcons name="scale-bathroom" size={24} color={colors.primaryStrong} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Nivel / Estado</Text>
-                <Text style={[styles.value, { color: getLevelStyle(selectedEval.nivel_resultado).color }]}>
-                  {selectedEval.nivel_resultado || '-'}
-                </Text>
+                <Text style={styles.label}>Peso registrado</Text>
+                <Text style={[styles.value, { color: colors.primaryStrong }]}>{formatUnit(selectedEval.peso_kg, "kg")}</Text>
               </View>
             </View>
 
-            <View>
-              <Text style={styles.label}>Tipo de evaluacion</Text>
-              <Text style={styles.value}>{selectedEval.tipo_evaluacion || "Evaluacion fisica"}</Text>
+            <View style={styles.metricsGrid}>
+              <DetailMetric label="Estatura" value={formatUnit(selectedEval.talla_cm, "cm")} />
+              <DetailMetric label="IMC" value={formatNumber(selectedEval.imc)} />
+              <DetailMetric label="Cintura" value={formatUnit(selectedEval.cintura_cm, "cm")} />
+              <DetailMetric label="Grasa corporal" value={formatUnit(selectedEval.grasa_corporal_pct, "%")} />
+              <DetailMetric label="Masa magra" value={formatUnit(selectedEval.masa_magra_kg, "kg")} />
+              <DetailMetric label="Cintura / altura" value={formatNumber(selectedEval.cintura_altura, 3)} />
             </View>
 
-            <View>
-              <Text style={styles.label}>Resumen</Text>
-              <Text style={styles.textValue}>{selectedEval.resultado_resumen || 'Sin resumen'}</Text>
-            </View>
+            <View><Text style={styles.label}>Objetivo</Text><Text style={styles.textValue}>{selectedEval.objetivo || "No especificado"}</Text></View>
 
             {selectedEval.observaciones ? (
               <View>
@@ -131,14 +130,6 @@ export default function EvaluacionesPage() {
               </View>
             ) : null}
 
-            {selectedEval.fecha_proxima_evaluacion ? (
-              <View>
-                <Text style={styles.label}>Proxima evaluacion</Text>
-                <Text style={[styles.value, { color: colors.accent }]}>
-                  {formatDate(selectedEval.fecha_proxima_evaluacion)}
-                </Text>
-              </View>
-            ) : null}
           </View>
         )}
       </AppModal>
@@ -147,23 +138,23 @@ export default function EvaluacionesPage() {
 }
 
 function EvaluationCard({ item, active, onPress }) {
-  const levelStyle = getLevelStyle(item.nivel_resultado);
+  const levelStyle = getImcStyle(item.imc);
 
   return (
     <Pressable onPress={onPress}>
       <AppCard style={[styles.evaluationCard, { borderLeftColor: levelStyle.color }, active && styles.evaluationCardActive]}>
         <View style={styles.cardBody}>
-          <DateTile value={item.fecha_evaluacion} />
+          <DateTile value={item.fecha_registro || item.fecha_ficha} />
 
           <View style={styles.cardInfo}>
             <View style={styles.cardTop}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardDate}>Evaluacion {formatDate(item.fecha_evaluacion)}</Text>
+                <Text style={styles.cardDate}>Control {formatDate(item.fecha_registro || item.fecha_ficha)}</Text>
               </View>
-              <AppBadge tone={levelStyle.badgeTone}>{item.nivel_resultado || "Pendiente"}</AppBadge>
+              <AppBadge tone={levelStyle.badgeTone}>IMC {formatNumber(item.imc)}</AppBadge>
             </View>
-
-            <Text style={styles.cardHint}>Toca para revisar el detalle completo</Text>
+            <View style={styles.cardMetrics}><Text style={styles.cardMetric}>{formatUnit(item.peso_kg, "kg")}</Text><Text style={styles.cardMetric}>{formatUnit(item.grasa_corporal_pct, "% grasa")}</Text></View>
+            <Text style={styles.cardHint}>Toca para revisar todas las medidas</Text>
           </View>
         </View>
 
@@ -197,22 +188,24 @@ function DateTile({ value }) {
   );
 }
 
-function getLevelStyle(level = "") {
-  const normalized = String(level).toLowerCase();
+function getImcStyle(value) {
+  const imc = Number(value);
+  if (imc >= 18.5 && imc < 25) return { color: colors.success, badgeTone: "success" };
+  if (imc >= 25 && imc < 30) return { color: colors.warning, badgeTone: "warning" };
+  return { color: colors.info, badgeTone: "primary" };
+}
 
-  if (normalized.includes("excelente")) {
-    return { color: colors.success, badgeTone: "success" };
-  }
+function DetailMetric({ label, value }) {
+  return <View style={styles.detailMetric}><Text style={styles.label}>{label}</Text><Text style={styles.value}>{value}</Text></View>;
+}
 
-  if (normalized.includes("bueno")) {
-    return { color: colors.info, badgeTone: "primary" };
-  }
+function formatNumber(value, digits = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "-";
+}
 
-  if (normalized.includes("riesgo") || normalized.includes("bajo") || normalized.includes("deficiente")) {
-    return { color: colors.danger, badgeTone: "danger" };
-  }
-
-  return { color: colors.warning, badgeTone: "warning" };
+function formatUnit(value, unit) {
+  return value == null ? "-" : `${formatNumber(value)} ${unit}`;
 }
 
 function parseDate(value) {
@@ -305,6 +298,8 @@ const styles = StyleSheet.create({
     ...typography.itemSubtitle,
     marginTop: 2,
   },
+  cardMetrics: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  cardMetric: { fontSize: 12, fontWeight: "900", color: colors.primaryStrong, backgroundColor: colors.primaryPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -335,4 +330,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
+  metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  detailMetric: { width: "47%", padding: 10, borderRadius: 8, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border },
 });

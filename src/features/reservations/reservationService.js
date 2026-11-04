@@ -21,16 +21,15 @@ export const getReservationMemberships = async ({ fecha } = {}) => {
 };
 
 export const getMyReservations = async () => {
-  const { data } = await apiClient.get("/app/reservas", {
-    params: { estado: "RESERVADA" },
-  });
+  const { data } = await apiClient.get("/app/reservas");
 
   return Array.isArray(data) ? data : [];
 };
 
-export const createReservation = async (cupoDiarioId, socioMembresiaId) => {
+export const createReservation = async (horario, socioMembresiaId) => {
   const { data } = await apiClient.post("/app/reservas", {
-    cupo_diario_id: cupoDiarioId,
+    horario_id: horario.id,
+    fecha: horario.fecha,
     socio_membresia_id: socioMembresiaId || undefined,
   });
 

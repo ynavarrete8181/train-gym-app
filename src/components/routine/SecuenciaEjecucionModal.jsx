@@ -248,7 +248,7 @@ function getPlannedLoadValue(planned, fallbackLoad) {
     const kg = formatKg(roundedLoad);
     return {
       value: kg,
-      hint: `${kg} kg plan`,
+      hint: `${kg} kg · ${formatKg(Number(roundedLoad) * 2.2046226218)} lb plan`,
     };
   }
 

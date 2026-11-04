@@ -61,6 +61,14 @@ export default function RMsPage() {
         contentContainerStyle={[appStyles.container, { gap: 16, paddingTop: 18, paddingBottom: getScreenBottomPadding(insets.bottom, 28) }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={loadRms} tintColor={colors.primary} />}
       >
+        <AppCard style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View><Text style={styles.summaryValue}>{rms?.length || 0}</Text><Text style={styles.summaryLabel}>registros RM</Text></View>
+            <View style={styles.summaryDivider} />
+            <View style={{ flex: 1 }}><Text style={styles.summaryTitle}>Tus cargas de entrenamiento</Text><Text style={styles.summaryText}>Consulta tu 1RM estimado y el peso correspondiente a cada porcentaje.</Text></View>
+          </View>
+        </AppCard>
+
         <Searchbar
           placeholder="Buscar ejercicio..."
           onChangeText={setSearchQuery}
@@ -82,6 +90,7 @@ export default function RMsPage() {
                       <AppBadge tone="purple">RM estimado</AppBadge>
                     </View>
                     <Text style={styles.rmValue}>{formatNumber(rm.rm_estimado)} <Text style={styles.rmUnit}>kg</Text></Text>
+                    <Text style={styles.lbValue}>{formatNumber(rm.rm_estimado_lb || Number(rm.rm_estimado) * 2.2046226218)} lb</Text>
                     <View style={styles.badgesRow}>
                       <View>
                         <Text style={styles.metaValue}>{rm.repeticiones_usadas || rm.repeticiones || "-"} reps</Text>
@@ -92,8 +101,27 @@ export default function RMsPage() {
                         <Text style={styles.metaLabel}>Fecha</Text>
                       </View>
                     </View>
+                    <View style={styles.exerciseMetaRow}>
+                      <Text style={styles.exerciseMeta}>{rm.grupo_muscular || "Grupo general"}</Text>
+                      <Text style={styles.exerciseMeta}> · {rm.equipamiento || "Equipo libre"}</Text>
+                    </View>
                   </View>
                 </View>
+                <View style={styles.testBox}>
+                  <Text style={styles.testTitle}>Prueba registrada</Text>
+                  <Text style={styles.testText}>{formatNumber(rm.peso)} kg / {formatNumber(rm.peso_lb || Number(rm.peso) * 2.2046226218)} lb · {rm.repeticiones_usadas || rm.repeticiones || "-"} repeticiones · {String(rm.tipo_registro || "ESTIMADO").replaceAll("_", " ")}</Text>
+                </View>
+                <Text style={styles.percentTitle}>Cargas sugeridas según tu RM</Text>
+                <View style={styles.percentGrid}>
+                  {(rm.cargas_porcentaje || buildPercentages(rm.rm_estimado)).map((carga) => (
+                    <View key={carga.porcentaje} style={styles.percentItem}>
+                      <Text style={styles.percentValue}>{carga.porcentaje}%</Text>
+                      <Text style={styles.percentLoad}>{formatNumber(carga.kg)} kg</Text>
+                      <Text style={styles.percentLb}>{formatNumber(carga.lb)} lb</Text>
+                    </View>
+                  ))}
+                </View>
+                {rm.observaciones ? <Text style={styles.notes}>Observación: {rm.observaciones}</Text> : null}
               </AppCard>
             ))
           ) : (
@@ -106,12 +134,6 @@ export default function RMsPage() {
         </View>
       </ScrollView>
 
-      {/* Botón flotante para agregar RM */}
-      <View style={[styles.fabContainer, { bottom: getScreenBottomPadding(insets.bottom, 8) }]}>
-        <View style={styles.fab}>
-          <MaterialCommunityIcons name="plus" size={28} color={colors.white} />
-        </View>
-      </View>
     </View>
   );
 }
@@ -165,7 +187,19 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
 }
 
+function buildPercentages(rm) {
+  const value = Number(rm || 0);
+  return [50, 60, 70, 75, 80, 85, 90, 95, 100].map((porcentaje) => ({ porcentaje, kg: value * porcentaje / 100, lb: value * porcentaje / 100 * 2.2046226218 }));
+}
+
 const styles = StyleSheet.create({
+  summaryCard: { padding: 16, backgroundColor: colors.primaryPale },
+  summaryRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  summaryValue: { fontSize: 30, fontWeight: "900", color: colors.primaryStrong },
+  summaryLabel: { fontSize: 11, fontWeight: "800", color: colors.textSoft },
+  summaryDivider: { width: 1, height: 48, backgroundColor: colors.border },
+  summaryTitle: { fontSize: 14, fontWeight: "900", color: colors.text },
+  summaryText: { marginTop: 3, fontSize: 11, lineHeight: 16, color: colors.textSoft },
   recordCard: {
     padding: 12,
   },
@@ -240,6 +274,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSoft
   },
+  lbValue: { fontSize: 12, color: colors.primaryStrong, fontWeight: "800", marginTop: -3 },
+  exerciseMetaRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
+  exerciseMeta: { fontSize: 10, color: colors.textSoft, fontWeight: "700" },
+  testBox: { marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
+  testTitle: { fontSize: 11, fontWeight: "900", color: colors.text },
+  testText: { marginTop: 3, fontSize: 11, lineHeight: 16, color: colors.textSoft, fontWeight: "700" },
+  percentTitle: { marginTop: 13, marginBottom: 8, fontSize: 12, fontWeight: "900", color: colors.text },
+  percentGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  percentItem: { width: "31.5%", paddingVertical: 7, paddingHorizontal: 5, borderRadius: 9, alignItems: "center", backgroundColor: colors.primaryPale },
+  percentValue: { fontSize: 11, fontWeight: "900", color: colors.primaryStrong },
+  percentLoad: { marginTop: 2, fontSize: 11, fontWeight: "900", color: colors.text },
+  percentLb: { fontSize: 9, fontWeight: "700", color: colors.textSoft },
+  notes: { marginTop: 10, fontSize: 11, lineHeight: 16, color: colors.textSoft, fontStyle: "italic" },
   searchBar: {
     backgroundColor: 'white',
     borderRadius: 999,
@@ -249,23 +296,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 12,
     marginBottom: 8,
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 24,
-    zIndex: 100,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 8,
   }
 });

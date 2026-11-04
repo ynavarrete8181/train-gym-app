@@ -164,7 +164,7 @@ export default function ReservasPage() {
     setSavingId(pendingReservation.id);
     setMessage("");
     try {
-      await createReservation(pendingReservation.id, selectedMembership.socio_membresia_id);
+      await createReservation(pendingReservation, selectedMembership.socio_membresia_id);
       setPendingReservation(null);
       setMessage("Reserva confirmada correctamente.");
       setSelectedDate(null);
@@ -474,7 +474,9 @@ export default function ReservasPage() {
                         <View style={styles.infoBlock}>
                           <View style={styles.titleRow}>
                             <Text style={styles.rowTitle} numberOfLines={1}>{item.servicio_nombre || "Reserva Revive"}</Text>
-                            <AppBadge tone="success">{item.estado}</AppBadge>
+                            <AppBadge tone={item.estado === "ASISTIO" ? "success" : item.estado === "NO_ASISTIO" || item.estado === "CANCELADA" ? "danger" : "warning"}>
+                              {item.estado_nombre || item.estado}
+                            </AppBadge>
                           </View>
                           
                           <Text style={styles.sedeText}>{item.sede_nombre}</Text>

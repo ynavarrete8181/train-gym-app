@@ -25,7 +25,7 @@ export const getRMs = async () => {
 export const getFacturas = async () => {
   try {
     const response = await apiClient.get("/app/facturas");
-    return response.data.data;
+    return response.data?.datos ?? response.data?.data ?? [];
   } catch (error) {
     const errorMsg = normalizeApiError(error);
     console.error("Error fetching facturas:", errorMsg);
@@ -35,8 +35,9 @@ export const getFacturas = async () => {
 
 export const getEvaluaciones = async () => {
   try {
-    const response = await apiClient.get("/app/evaluaciones");
-    return response.data.data;
+    const response = await apiClient.get("/app/fichas");
+    const data = response.data?.data || {};
+    return data.evaluaciones || (data.ficha ? [data.ficha] : []);
   } catch (error) {
     const errorMsg = normalizeApiError(error);
     console.error("Error fetching evaluaciones:", errorMsg);
